@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    tools:context="com.cyou.netstat.MainActivity"
+    app:layout_collapseParallaxMultiplier="1.0"
+    android:orientation="vertical"
+    android:weightSum="1">
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="30dp"/>
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="48dp">
+
+        <Chronometer
+            android:minWidth="50dp"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:id="@+id/chronometer"
+            android:gravity="center"
+            android:countDown="false"
+            android:format="%s:%s:%s"
+            android:textAlignment="center"
+            tools:text="测试"
+            android:layout_weight="0.48"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentStart="true"/>
+
+        <Switch
+            android:text="加速"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:id="@+id/speedSwitch"
+            android:gravity="center"
+            android:textOff="关闭"
+            android:textOn="开启"
+            android:layout_weight="0.37"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentEnd="true"/>
+
+        <RadioGroup
+            android:minWidth="100dp"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:layout_alignParentTop="true"
+            android:layout_toEndOf="@+id/chronometer">
+
+            <RadioButton
+                android:text="吞吐量"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:id="@+id/bandwidthRadio"
+                android:gravity="center"
+                android:layout_weight="1"/>
+
+            <RadioButton
+                android:text="延时"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:id="@+id/delayRadio"
+                android:gravity="center"
+                android:layout_weight="1"/>
+        </RadioGroup>
+    </RelativeLayout>
+
+    <ProgressBar
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="32dp"
+        android:id="@+id/progressBar2"
+        android:visibility="visible"
+        tools:visibility="visible"
+        android:progress="100" />
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="24dp" />
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <ToggleButton
+            android:text="ToggleButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/startButton"
+            android:textOff="开始测试"
+            android:textOn="关闭测试"
+            android:layout_weight="1" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_weight="1">
+
+        <EditText
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:inputType="none"
+            android:gravity="top|left"
+            android:ems="10"
+            android:focusable="false"
+            android:id="@+id/logText"
+            android:layout_weight="1"
+            />
+    </LinearLayout>
+
+</LinearLayout>
