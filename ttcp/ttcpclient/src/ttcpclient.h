@@ -1,5 +1,5 @@
-#ifndef __NETSTAT_TTCPLIB_TTCP__
-#define __NETSTAT_TTCPLIB_TTCP__
+#ifndef __NETSTAT_TTCP_TTCPCLIENT__
+#define __NETSTAT_TTCP_TTCPCLIENT__
 
 #include <string>
 #include <boost/asio.hpp>
@@ -45,4 +45,4 @@ namespace ttcp
     };
 }
 
-#endif // __NETSTAT_TTCPLIB_TTCP__
+#endif // __NETSTAT_TTCP_TTCPCLIENT__

@@ -90,7 +90,7 @@ TTcpClient::Start()
         boost::bind(&TTcpClient::HandleConnect, this,
             boost::asio::placeholders::error));
 
-    m_Thread = new boost::thread(boost::bind(&boost::asio::io_service::run, &m_IOservice));
+    //m_Thread = new boost::thread(boost::bind(&boost::asio::io_service::run, &m_IOservice));
 }
 
 void
