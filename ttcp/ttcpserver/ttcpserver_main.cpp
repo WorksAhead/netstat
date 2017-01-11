@@ -186,7 +186,7 @@ int main(int argc, char* argv[])
     // Initialise the server before becoming a daemon. If the process is
     // started from a shell, this means any errors will be reported back to the
     // user.
-    TTcpServer server(io_service);
+    TTcpServer server(io_service, listenPort);
 
     // Run as daemon or not.
 #if defined (__linux__) || defined (__FreeBSD__)
