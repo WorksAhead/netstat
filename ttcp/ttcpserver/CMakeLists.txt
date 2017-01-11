@@ -21,11 +21,7 @@ endif()
 add_executable(ttcpserver
                ttcpserver_main.cpp
                ttcpserver.cpp
-               ttcpserver.h
-			   io_service_pool.cpp
-			   io_service_pool.h
-			   connection.cpp
-			   connection.h)
+               ttcpserver.h)
 
 target_link_libraries(ttcpserver ${Boost_LIBRARIES})
 target_compile_features(ttcpserver PRIVATE cxx_generalized_initializers)
