@@ -33,7 +33,7 @@ int main()
 		for (int i = 0; i < 10; ++i)
 		{
 			latency_client_start(p);
-			boost::this_thread::sleep_for(boost::chrono::milliseconds(rand() % 5000));
+			boost::this_thread::sleep_for(boost::chrono::seconds(30));
 			latency_client_stop(p);
 		}
 
