@@ -152,11 +152,10 @@ int main(int argc, char* argv[])
         expr::stream
         << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%d_%H:%M:%S.%f")
         << ": <" << boost::log::trivial::severity << "> "
-        << expr::format_named_scope("Scope", keywords::format = "[%f:%l] ")
+        ADD_FILE_LINE_ATTRIBUTES
         << expr::smessage;
 
     logging::add_common_attributes();
-    logging::core::get()->add_global_attribute("Scope", attrs::named_scope());
 
     if (isDaemonize)
     {
@@ -179,6 +178,15 @@ int main(int argc, char* argv[])
         logging::trivial::severity >= logging::trivial::info
     );
 #endif
+
+    TTCP_LOGGER(info) << "test";
+
+    TTCP_LOGGER(info) << "test";
+    TTCP_LOGGER(info) << "test";
+    TTCP_LOGGER(info) << "test";
+    while (1)
+    {
+    }
 
     // Ready to run server.
     boost::asio::io_service io_service;
