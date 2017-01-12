@@ -1,29 +1,41 @@
 #ifndef __NETSTAT_TTCP_TTCPSERVER__
 #define __NETSTAT_TTCP_TTCPSERVER__
 
-#include <string>
-#include <boost/asio.hpp>
 #include "io_service_pool.h"
+#include "connection.h"
+#include <boost/asio.hpp>
+#include <boost/noncopyable.hpp>
 
 namespace ttcp
 {
-    class TTcpServer
+    class TTcpServer : private boost::noncopyable
     {
     public:
-        TTcpServer(boost::asio::io_service& IOService, unsigned short port);
-        ~TTcpServer(){}
+        TTcpServer(const std::string& address,
+            const std::string& port,
+            std::size_t pool_size);
+        ~TTcpServer();
 
-        /// The pool of io_service objects used to perform asynchronous operations.
-        io_service_pool io_service_pool_;
+        // Run the server's io_service loop.
+        void Run();
 
-        /// The signal_set is used to register for process termination notifications.
-        boost::asio::signal_set signals_;
+    private:
+        // Initiate an asynchronous accept operation.
+        void StartAccept();
 
-        /// Acceptor used to listen for incoming connections.
-        boost::asio::ip::tcp::acceptor acceptor_;
+        // Handle a request to stop the server.
+        void HandleStop();
+        // Handle completion of an asynchronous accept operation.
+        void HandleAccept(ConnectionPtr conn, const boost::system::error_code& err);
 
-        /// The next connection to be accepted.
-        connection_ptr new_connection_;
+    private:
+        // The pool of io_service objects used to perform asynchronous operations.
+        IOServicePool m_IOServicePool;
+
+        // The signal_set is used to register for process termination notifications.
+        boost::asio::signal_set m_Signals;
+        // Acceptor used to listen for incoming connections.
+        boost::asio::ip::tcp::acceptor m_Acceptor;
     };
 }
 

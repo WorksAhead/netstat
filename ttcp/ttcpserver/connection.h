@@ -6,54 +6,58 @@
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
+#include <boost/container/slist.hpp>
 
 namespace ttcp
 {
-    /// Represents a single connection from a client.
-    class connection
-        : public boost::enable_shared_from_this<connection>,
-         private boost::noncopyable
+    class Connection;
+    typedef boost::shared_ptr<Connection> ConnectionPtr;
+
+    // Represents a single connection from a client.
+    class Connection
+        : public boost::enable_shared_from_this<Connection>,
+        private boost::noncopyable
     {
     public:
-        /// Construct a connection with the given io_service.
-        explicit connection(boost::asio::io_service& io_service,
-            request_handler& handler);
+        static ConnectionPtr Create(boost::asio::io_service& IOService)
+        {
+            ConnectionPtr conn(new Connection(IOService));
+            s_ConnectionList.push_front(conn);
+            return conn;
+        }
 
-        /// Get the socket associated with the connection.
-        boost::asio::ip::tcp::socket& socket();
+        // Construct a connection with the given io_service.
+        explicit Connection(boost::asio::io_service& IOService);
+        ~Connection();
 
-        /// Start the first asynchronous operation for the connection.
-        void start();
+        // Get the socket associated with the connection.
+        boost::asio::ip::tcp::socket& GetSocket();
+
+        // Start the first asynchronous operation for the connection.
+        void Start();
+        // Close the connection and remove itself from s_ConnectionList.
+        void Close();
 
     private:
-        /// Handle completion of a read operation.
-        void handle_read(const boost::system::error_code& e,
-            std::size_t bytes_transferred);
+        // Handle completion of a read operation.
+        void HandleRead(const boost::system::error_code& err, std::size_t bytes_transferred);
+        // Handle completion of a write operation.
+        void HandleWrite(const boost::system::error_code& err);
 
-        /// Handle completion of a write operation.
-        void handle_write(const boost::system::error_code& e);
+    private:
+        // Socket for the connection.
+        boost::asio::ip::tcp::socket m_Socket;
 
-        /// Socket for the connection.
-        boost::asio::ip::tcp::socket socket_;
+        // Buffer for incoming data.
+        boost::array<char, 8192> m_Buffer;
 
-        /// The handler used to process the incoming request.
-        request_handler& request_handler_;
+        // Totally 
+        uint64_t m_TotalReadBytes;
+        uint64_t m_TotalWriteBytes;
 
-        /// Buffer for incoming data.
-        boost::array<char, 8192> buffer_;
-
-        /// The incoming request.
-        request request_;
-
-        /// The parser for the incoming request.
-        request_parser request_parser_;
-
-        /// The reply to be sent back to the client.
-        reply reply_;
+        typedef boost::container::slist<ConnectionPtr> ConnectionList;
+        static ConnectionList s_ConnectionList;
     };
-
-    typedef boost::shared_ptr<connection> connection_ptr;
-
 }
 
 #endif // __NETSTAT_TTCP_CONNECTION__

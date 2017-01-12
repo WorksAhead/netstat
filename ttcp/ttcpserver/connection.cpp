@@ -1,93 +1,93 @@
-//
-// connection.cpp
-// ~~~~~~~~~~~~~~
-//
-// Copyright (c) 2003-2016 Christopher M. Kohlhoff (chris at kohlhoff dot com)
-//
-// Distributed under the Boost Software License, Version 1.0. (See accompanying
-// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
-//
-
 #include "connection.h"
-#include <vector>
+#include "logger.h"
 #include <boost/bind.hpp>
-#include "request_handler.hpp"
 
-namespace http {
-namespace server2 {
 
-connection::connection(boost::asio::io_service& io_service,
-    request_handler& handler)
-  : socket_(io_service),
-    request_handler_(handler)
+using namespace ttcp;
+
+Connection::ConnectionList Connection::s_ConnectionList;
+
+Connection::Connection(boost::asio::io_service& IOService)
+    : m_Socket(IOService)
+    , m_TotalReadBytes(0)
+    , m_TotalWriteBytes(0)
 {
+
 }
 
-boost::asio::ip::tcp::socket& connection::socket()
+Connection::~Connection()
 {
-  return socket_;
+    TTCP_LOGGER(debug) << "Connection " << m_Socket.remote_endpoint().address() << " closed.";
 }
 
-void connection::start()
+boost::asio::ip::tcp::socket& Connection::GetSocket()
 {
-  socket_.async_read_some(boost::asio::buffer(buffer_),
-      boost::bind(&connection::handle_read, shared_from_this(),
-        boost::asio::placeholders::error,
-        boost::asio::placeholders::bytes_transferred));
+    return m_Socket;
 }
 
-void connection::handle_read(const boost::system::error_code& e,
+void Connection::Start()
+{
+    m_Socket.async_read_some(boost::asio::buffer(m_Buffer),
+        boost::bind(&Connection::HandleRead, shared_from_this(),
+            boost::asio::placeholders::error,
+            boost::asio::placeholders::bytes_transferred));
+}
+
+void Connection::HandleRead(const boost::system::error_code& err,
     std::size_t bytes_transferred)
 {
-  if (!e)
-  {
-    boost::tribool result;
-    boost::tie(result, boost::tuples::ignore) = request_parser_.parse(
-        request_, buffer_.data(), buffer_.data() + bytes_transferred);
+    if (!err)
+    {
+        m_TotalReadBytes += bytes_transferred;
 
-    if (result)
-    {
-      request_handler_.handle_request(request_, reply_);
-      boost::asio::async_write(socket_, reply_.to_buffers(),
-          boost::bind(&connection::handle_write, shared_from_this(),
-            boost::asio::placeholders::error));
-    }
-    else if (!result)
-    {
-      reply_ = reply::stock_reply(reply::bad_request);
-      boost::asio::async_write(socket_, reply_.to_buffers(),
-          boost::bind(&connection::handle_write, shared_from_this(),
-            boost::asio::placeholders::error));
+        m_Socket.async_read_some(boost::asio::buffer(m_Buffer),
+            boost::bind(&Connection::HandleRead, shared_from_this(),
+                boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred));
     }
     else
     {
-      socket_.async_read_some(boost::asio::buffer(buffer_),
-          boost::bind(&connection::handle_read, shared_from_this(),
-            boost::asio::placeholders::error,
-            boost::asio::placeholders::bytes_transferred));
+        TTCP_LOGGER(debug) << "Complete reading from " << m_Socket.remote_endpoint().address() << ", total bytes is " << m_TotalReadBytes;
+        // Received EOF, close connection.
+        Close();
     }
-  }
 
-  // If an error occurs then no new asynchronous operations are started. This
-  // means that all shared_ptr references to the connection object will
-  // disappear and the object will be destroyed automatically after this
-  // handler returns. The connection class's destructor closes the socket.
+    // If an error occurs then no new asynchronous operations are started. This
+    // means that all shared_ptr references to the connection object will
+    // disappear and the object will be destroyed automatically after this
+    // handler returns. The connection class's destructor closes the socket.
 }
 
-void connection::handle_write(const boost::system::error_code& e)
+void Connection::HandleWrite(const boost::system::error_code& err)
 {
-  if (!e)
-  {
-    // Initiate graceful connection closure.
-    boost::system::error_code ignored_ec;
-    socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
-  }
+    if (!err)
+    {
+        // Initiate graceful connection closure.
+        //boost::system::error_code ignored_ec;
+        //socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
+    }
+    else
+    {
+        TTCP_LOGGER(debug) << "write failed.";
+    }
 
-  // No new asynchronous operations are started. This means that all shared_ptr
-  // references to the connection object will disappear and the object will be
-  // destroyed automatically after this handler returns. The connection class's
-  // destructor closes the socket.
+    // No new asynchronous operations are started. This means that all shared_ptr
+    // references to the connection object will disappear and the object will be
+    // destroyed automatically after this handler returns. The connection class's
+    // destructor closes the socket.
 }
 
-} // namespace server2
-} // namespace http
+void
+Connection::Close()
+{
+    if (m_Socket.is_open())
+    {
+        boost::system::error_code ignored_ec;
+        m_Socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
+        if (ignored_ec)
+        {
+            TTCP_LOGGER(warning) << "Failed to shutdown socket of " << m_Socket.remote_endpoint().address() << ", because " << ignored_ec;
+        }
+    }
+    s_ConnectionList.remove(shared_from_this());
+}

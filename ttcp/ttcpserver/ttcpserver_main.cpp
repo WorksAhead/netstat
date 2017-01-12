@@ -113,14 +113,18 @@ namespace po = boost::program_options;
 int main(int argc, char* argv[])
 {
     // Get command line arguments.
-    unsigned short listenPort;
+    std::string address;
+    std::string port;
+    int threadNum;
     bool isDaemonize = false;
 
     po::options_description desc("Allowed options");
     desc.add_options()
         ("help,h", "Produce help message.")
         ("daemon,d", "Running as a daemon process.")
-        ("port,p", po::value<unsigned short>(&listenPort)->default_value(5001), "Listen port, default is 5001.")
+        ("address,i", po::value<std::string>(&address)->default_value("0.0.0.0"), "Bind address, default is 0.0.0.0.")
+        ("port,p", po::value<std::string>(&port)->default_value("5001"), "Listen port, default is 5001.")
+        ("thread,n", po::value<int>(&threadNum)->default_value(4), "Worker thread number, default is 4.")
         ;
 
     po::variables_map vm;
@@ -142,16 +146,16 @@ int main(int argc, char* argv[])
     }
 #endif
 
-    if (vm.count("port"))
-    {
-        listenPort = vm["port"].as<unsigned short>();
-    }
+    address = vm["address"].as<std::string>();
+    port = vm["port"].as<std::string>();
+    threadNum = vm["thread"].as<int>();
 
     // Init log system.
     logging::formatter formatter =
         expr::stream
         << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%d_%H:%M:%S.%f")
         << ": <" << boost::log::trivial::severity << "> "
+        << "[" << expr::attr<attrs::current_thread_id::value_type>("ThreadID") << "] "
         ADD_FILE_LINE_ATTRIBUTES
         << expr::smessage;
 
@@ -179,22 +183,10 @@ int main(int argc, char* argv[])
     );
 #endif
 
-    TTCP_LOGGER(info) << "test";
-
-    TTCP_LOGGER(info) << "test";
-    TTCP_LOGGER(info) << "test";
-    TTCP_LOGGER(info) << "test";
-    while (1)
-    {
-    }
-
-    // Ready to run server.
-    boost::asio::io_service io_service;
-
     // Initialise the server before becoming a daemon. If the process is
     // started from a shell, this means any errors will be reported back to the
     // user.
-    TTcpServer server(io_service, listenPort);
+    TTcpServer server(address, port, threadNum);
 
     // Run as daemon or not.
 #if defined (__linux__) || defined (__FreeBSD__)
@@ -223,7 +215,9 @@ int main(int argc, char* argv[])
 #endif
 
     // Server run.
-    io_service.run();
+    TTCP_LOGGER(info) << "Server is running.";
+    server.Run();
+    TTCP_LOGGER(info) << "Server is shutting down.";
 
     return 0;
 }

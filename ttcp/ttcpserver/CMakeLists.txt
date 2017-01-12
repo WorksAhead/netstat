@@ -18,10 +18,15 @@ if(UNIX)
     set(CMAKE_CXX_FLAGS -DBOOST_LOG_DYN_LINK)
 endif()
 
+if(WIN32)
+	add_definitions(-DWINVER=0x0A00 -D_WIN32_WINNT=0x0A00)
+endif()
+
 add_executable(ttcpserver
                ttcpserver_main.cpp
                ttcpserver.cpp
                ttcpserver.h
+			   logger.h
 			   io_service_pool.cpp
 			   io_service_pool.h
 			   connection.cpp
