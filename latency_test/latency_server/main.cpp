@@ -96,7 +96,6 @@ private:
 	void handle_read(const boost::system::error_code& ec, size_t bytes_transferred)
 	{
 		if (!ec) {
-			std::cout << "read " << bytes_transferred << std::endl;
 			socket_.async_write_some(boost::asio::buffer(data, bytes_transferred),
 				boost::bind(&session::handle_write, this, boost::placeholders::_1, boost::placeholders::_2));
 		}
@@ -108,7 +107,6 @@ private:
 	void handle_write(const boost::system::error_code& ec, size_t bytes_transferred)
 	{
 		if (!ec) {
-			std::cout << "write " << bytes_transferred << std::endl;
 			socket_.async_read_some(boost::asio::buffer(data),
 				boost::bind(&session::handle_read, this, boost::placeholders::_1, boost::placeholders::_2));
 		}
