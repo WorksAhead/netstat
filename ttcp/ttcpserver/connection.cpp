@@ -2,10 +2,17 @@
 #include "logger.h"
 #include <boost/bind.hpp>
 
-
 using namespace ttcp;
 
 Connection::ConnectionList Connection::s_ConnectionList;
+
+ConnectionPtr
+Connection::Create(boost::asio::io_service& IOService)
+{
+    ConnectionPtr conn(new Connection(IOService));
+    s_ConnectionList.push_front(conn);
+    return conn;
+}
 
 Connection::Connection(boost::asio::io_service& IOService)
     : m_Socket(IOService)
@@ -40,7 +47,7 @@ void Connection::HandleRead(const boost::system::error_code& err,
     {
         m_TotalReadBytes += bytes_transferred;
 
-        m_Socket.async_read_some(boost::asio::buffer(m_Buffer),
+        m_Socket.async_read_some(boost::asio::buffer(m_RevBuff),
             boost::bind(&Connection::HandleRead, shared_from_this(),
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));

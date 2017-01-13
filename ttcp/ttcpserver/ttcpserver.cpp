@@ -5,8 +5,8 @@
 using namespace ttcp;
 
 TTcpServer::TTcpServer(const std::string& address,
-    const std::string& port,
-    std::size_t pool_size)
+                       const std::string& port,
+                              std::size_t pool_size)
     : m_IOServicePool(pool_size)
     , m_Signals(m_IOServicePool.GetIOService())
     , m_Acceptor(m_IOServicePool.GetIOService())

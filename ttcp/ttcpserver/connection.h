@@ -1,6 +1,7 @@
 #ifndef __NETSTAT_TTCP_CONNECTION__
 #define __NETSTAT_TTCP_CONNECTION__
 
+#include <array>
 #include <boost/asio.hpp>
 #include <boost/array.hpp>
 #include <boost/noncopyable.hpp>
@@ -10,6 +11,8 @@
 
 namespace ttcp
 {
+    #define BUFF_SIZE 8192
+
     class Connection;
     typedef boost::shared_ptr<Connection> ConnectionPtr;
 
@@ -19,12 +22,7 @@ namespace ttcp
         private boost::noncopyable
     {
     public:
-        static ConnectionPtr Create(boost::asio::io_service& IOService)
-        {
-            ConnectionPtr conn(new Connection(IOService));
-            s_ConnectionList.push_front(conn);
-            return conn;
-        }
+        static ConnectionPtr Create(boost::asio::io_service& IOService);
 
         // Construct a connection with the given io_service.
         explicit Connection(boost::asio::io_service& IOService);
@@ -50,6 +48,9 @@ namespace ttcp
 
         // Buffer for incoming data.
         boost::array<char, 8192> m_Buffer;
+
+        std::array<char, BUFF_SIZE> m_RevBuff;
+        std::array<char, BUFF_SIZE> m_SndBuff;
 
         // Totally 
         uint64_t m_TotalReadBytes;

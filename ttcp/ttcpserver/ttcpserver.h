@@ -12,8 +12,8 @@ namespace ttcp
     {
     public:
         TTcpServer(const std::string& address,
-            const std::string& port,
-            std::size_t pool_size);
+                   const std::string& port,
+                          std::size_t pool_size);
         ~TTcpServer();
 
         // Run the server's io_service loop.
