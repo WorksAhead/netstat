@@ -24,7 +24,7 @@ Connection::Connection(boost::asio::io_service& IOService)
 
 Connection::~Connection()
 {
-    TTCP_LOGGER(debug) << "Connection " << m_Socket.remote_endpoint().address() << " closed.";
+    TTCP_LOGGER(info) << "Connection [" << m_Socket.remote_endpoint() << "] has closed.";
 }
 
 boost::asio::ip::tcp::socket& Connection::GetSocket()
@@ -54,7 +54,7 @@ void Connection::HandleRead(const boost::system::error_code& err,
     }
     else
     {
-        TTCP_LOGGER(debug) << "Complete reading from " << m_Socket.remote_endpoint().address() << ", total bytes is " << m_TotalReadBytes;
+        TTCP_LOGGER(debug) << "Complete reading from " << m_Socket.remote_endpoint() << ", total bytes is " << m_TotalReadBytes << ".";
         // Received EOF, close connection.
         Close();
     }
@@ -93,7 +93,7 @@ Connection::Close()
         m_Socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
         if (ignored_ec)
         {
-            TTCP_LOGGER(warning) << "Failed to shutdown socket of " << m_Socket.remote_endpoint().address() << ", because " << ignored_ec;
+            TTCP_LOGGER(warning) << "Failed to shutdown socket of " << m_Socket.remote_endpoint() << ", because " << ignored_ec << ".";
         }
     }
     s_ConnectionList.remove(shared_from_this());

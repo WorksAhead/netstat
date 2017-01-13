@@ -65,12 +65,12 @@ TTcpServer::HandleAccept(ConnectionPtr conn, const boost::system::error_code& er
 {
     if (!err)
     {
-        TTCP_LOGGER(info) << "Accepted a connection from [" << conn->GetSocket().remote_endpoint().address() << ":" << conn->GetSocket().remote_endpoint().port() << "]";
+        TTCP_LOGGER(info) << "Accepted a connection from [" << conn->GetSocket().remote_endpoint() << "].";
         conn->Start();
     }
     else
     {
-        TTCP_LOGGER(warning) << "Failed to accept connection from [" << conn->GetSocket().remote_endpoint().address() << ":" << conn->GetSocket().remote_endpoint().port() << "]";
+        TTCP_LOGGER(warning) << "Failed to accept connection from [" << conn->GetSocket().remote_endpoint() << "].";
         conn->Close();
     }
 
