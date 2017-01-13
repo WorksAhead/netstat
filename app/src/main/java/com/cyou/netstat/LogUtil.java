@@ -72,7 +72,7 @@ public class LogUtil
 	{
 		try
 		{
-			String finalMessage = TimeUtil.getTimeHeader() + message + "\n";
+			String finalMessage = "[" + TimeUtil.getNow() + "]" + message + "\n";
 			if (LogView != null)
 			{
 				LogView.append(finalMessage);

@@ -25,7 +25,7 @@ add_library( # Sets the name of the library.
              # Provides a relative path to your source file(s).
              # Associated headers in the same location as their source
              # file are automatically included.
-             src/main/cpp/native-lib.cpp )
+             src/main/cpp/native-lib.cpp src/main/cpp/latency_client.cpp )
 
 find_library(boost_system-lib, boost_system, libs/boost_1_62_0/armeabi-v7a/lib/)
 
@@ -48,6 +48,7 @@ find_library( # Sets the name of the path variable.
 
 target_link_libraries( # Specifies the target library.
                        native-lib boost_system ssl crypto z curl
+                       boost_chrono boost_random boost_thread boost_date_time
 
                        # Links the target library to the log library
                        # included in the NDK.

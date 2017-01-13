@@ -19,11 +19,10 @@ import android.widget.ToggleButton;
 
 import java.io.File;
 import java.util.Locale;
-
-import static android.R.attr.mode;
+import java.util.Timer;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener
-	, Switch.OnCheckedChangeListener
+	, Switch.OnCheckedChangeListener, Chronometer.OnChronometerTickListener
 {
 	private Chronometer Clock = null;
 	private TextView LogView = null;
@@ -34,6 +33,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 	private String LogPath = null;
 
 	private PStateListener PhoneListener = null;
+	Timer timer = null;
+
+	@Override
+	public void onChronometerTick(Chronometer var1)
+	{
+		//LogUtil.LogToView("chronometer tick...", LogUtil.LogType.Info, false);
+
+		String logMsg = GetNativeLog();
+		if (logMsg != null)
+		{
+			LogUtil.LogToView(logMsg, LogUtil.LogType.Info, false);
+		}
+	}
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState)
@@ -96,6 +108,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		StartButton = (ToggleButton)findViewById(R.id.startButton);
 		StartButton.setOnClickListener(this);
 		SpeedSwitch.setOnCheckedChangeListener(this);
+		Clock.setOnChronometerTickListener(this);
+
+		/// initialize native libraries
+		GlobalInitialize();
 
 		LogUtil.LogToView("initialize finished.");
 	}
@@ -118,6 +134,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 			Clock.setBase(SystemClock.elapsedRealtime());
 			Clock.start();
 		}
+	}
+
+	public String LogFromNativeCode(String message)
+	{
+		LogUtil.LogToView(message, LogUtil.LogType.Info, false);
+		return "";
 	}
 
 	@Override
@@ -191,6 +213,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 					setWidgetsEnabled(false);
 
 					// stop impl
+					int mode = DelayRadio.isChecked() ? 0 : 1;
 					switch (mode)
 					{
 						case 0:
@@ -251,6 +274,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 	public native void StopBandwidthTest();
 	public native boolean StartSpeedup();
 	public native void StopSpeedup();
+	public native void GlobalInitialize();
+	public native void GlobalDestroy();
+	public native String GetNativeLog();
 
 	// Used to load the 'native-lib' library on application startup.
 	static
