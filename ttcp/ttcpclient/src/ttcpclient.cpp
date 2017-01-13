@@ -101,10 +101,6 @@ TTcpClient::Stop()
 void
 TTcpClient::Run()
 {
-    if (!m_IOservice.stopped())
-    {
-        m_IOservice.reset();
-    }
-
+    m_IOservice.reset();
     m_IOservice.run();
 }

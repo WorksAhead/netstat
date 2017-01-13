@@ -47,20 +47,31 @@ int main(int argc, char* argv[])
     port = vm["port"].as<std::string>();
 
     //
+    boost::asio::io_service io;
+
     TTcpClient client(address, port, 1000);
     client.RegisterCallback(&ReportCB);
+
     client.Start();
-
     boost::thread t(boost::bind(&TTcpClient::Run, &client));
-
-    boost::asio::io_service io;
 
     boost::asio::deadline_timer writeLogTimer(io, boost::posix_time::seconds(10));
     writeLogTimer.async_wait(boost::bind(StopTTcpClient, boost::asio::placeholders::error, &client));
 
     io.run();
-
     t.join();
+
+    std::cout << "**** Start again! ****" << std::endl;
+
+    client.Start();
+    boost::thread t2(boost::bind(&TTcpClient::Run, &client));
+
+    writeLogTimer.expires_at(writeLogTimer.expires_at() + boost::posix_time::seconds(10));
+    writeLogTimer.async_wait(boost::bind(StopTTcpClient, boost::asio::placeholders::error, &client));
+
+    io.reset();
+    io.run();
+    t2.join();
 
     return 0;
 }
