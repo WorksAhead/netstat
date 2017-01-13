@@ -17,7 +17,7 @@ TTcpServer::TTcpServer(const std::string& address,
     m_Signals.add(SIGINT);
     m_Signals.add(SIGTERM);
 #if defined(SIGQUIT)
-    signals_.add(SIGQUIT);
+    m_Signals.add(SIGQUIT);
 #endif // defined(SIGQUIT)
     m_Signals.async_wait(boost::bind(&TTcpServer::HandleStop, this));
 
@@ -47,6 +47,7 @@ TTcpServer::Run()
 void
 TTcpServer::HandleStop()
 {
+    TTCP_LOGGER(info) << "Received QUIT signal.";
     m_IOServicePool.Stop();
 }
 

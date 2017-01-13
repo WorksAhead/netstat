@@ -35,6 +35,8 @@ namespace ttcp
         void HandleWrite(const boost::system::error_code& error, std::size_t bytesTransferred);
 
     private:
+        bool m_Stop{false};
+
         std::string m_Addr;
         std::string m_Port;
 

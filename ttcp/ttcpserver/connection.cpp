@@ -24,7 +24,7 @@ Connection::Connection(boost::asio::io_service& IOService)
 
 Connection::~Connection()
 {
-    TTCP_LOGGER(info) << "Connection [" << m_Socket.remote_endpoint() << "] has closed.";
+    TTCP_LOGGER(debug) << "Connection destructor called.";
 }
 
 boost::asio::ip::tcp::socket& Connection::GetSocket()
@@ -89,6 +89,8 @@ Connection::Close()
 {
     if (m_Socket.is_open())
     {
+        TTCP_LOGGER(info) << "Connection [" << m_Socket.remote_endpoint() << "] has closed.";
+
         boost::system::error_code ignored_ec;
         m_Socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
         if (ignored_ec)

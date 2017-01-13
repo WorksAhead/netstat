@@ -6,7 +6,7 @@ project(ttcpclient)
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 if(UNIX)
     find_package(Boost

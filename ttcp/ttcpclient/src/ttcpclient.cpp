@@ -12,8 +12,7 @@ TTcpClient::TTcpClient(const std::string& address, const std::string& port, uint
     , m_Socket{m_IOservice}
     , m_NotifyInterval{notifyInterval}
 {
-    m_NotifyTimer = boost::make_shared<boost::asio::deadline_timer>(m_IOservice, boost::posix_time::millisec(m_NotifyInterval));
-    m_NotifyTimer->async_wait(boost::bind(&TTcpClient::HandleNotifySubscribers, this));
+
 }
 
 boost::signals2::connection
@@ -28,8 +27,11 @@ TTcpClient::HandleNotifySubscribers()
     m_Signal(NotifyMsg);
 
     // Reset timer again.
-    m_NotifyTimer->expires_at(m_NotifyTimer->expires_at() + boost::posix_time::millisec(m_NotifyInterval));
-    m_NotifyTimer->async_wait(boost::bind(&TTcpClient::HandleNotifySubscribers, this));
+    if (!m_Stop)
+    {
+        m_NotifyTimer->expires_at(m_NotifyTimer->expires_at() + boost::posix_time::millisec(m_NotifyInterval));
+        m_NotifyTimer->async_wait(boost::bind(&TTcpClient::HandleNotifySubscribers, this));
+    }
 }
 
 void
@@ -78,6 +80,11 @@ TTcpClient::HandleWrite(const boost::system::error_code& error, std::size_t byte
 void
 TTcpClient::Start()
 {
+    m_Stop = false;
+
+    m_NotifyTimer.reset(new boost::asio::deadline_timer(m_IOservice, boost::posix_time::millisec(m_NotifyInterval)));
+    m_NotifyTimer->async_wait(boost::bind(&TTcpClient::HandleNotifySubscribers, this));
+
     // Connect to server.
     tcp::resolver resolver(m_IOservice);
     tcp::resolver::query query(m_Addr, m_Port);
@@ -94,8 +101,10 @@ TTcpClient::Stop()
     boost::system::error_code ignored_ec;
     m_Socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
     m_Socket.close();
+
+    m_Stop = true;
     
-    m_IOservice.stop();
+    // m_IOservice.stop();
 }
 
 void

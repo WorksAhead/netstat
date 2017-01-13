@@ -6,7 +6,7 @@ project(ttcpclient_test)
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 if(UNIX)
     find_package(Boost
@@ -36,5 +36,5 @@ include_directories(./src)
 
 add_executable(ttcpclient_test ttcpclient_test.cpp)
 
-target_link_libraries(ttcpclient_test ttcpclient ${Boost_LIBRARIES})
+target_link_libraries(ttcpclient_test ttcpclient ${Boost_LIBRARIES} pthread)
 target_compile_features(ttcpclient_test PRIVATE cxx_generalized_initializers)

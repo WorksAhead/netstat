@@ -6,7 +6,7 @@ project(ttcpserver)
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 if(UNIX)
     find_package(Boost
@@ -26,11 +26,11 @@ add_executable(ttcpserver
                ttcpserver_main.cpp
                ttcpserver.cpp
                ttcpserver.h
-			   logger.h
-			   io_service_pool.cpp
-			   io_service_pool.h
-			   connection.cpp
-			   connection.h)
+               logger.h
+               io_service_pool.cpp
+               io_service_pool.h
+               connection.cpp
+               connection.h)
 
-target_link_libraries(ttcpserver ${Boost_LIBRARIES})
+target_link_libraries(ttcpserver ${Boost_LIBRARIES} pthread)
 target_compile_features(ttcpserver PRIVATE cxx_generalized_initializers)

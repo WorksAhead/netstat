@@ -190,27 +190,10 @@ int main(int argc, char* argv[])
 
     // Run as daemon or not.
 #if defined (__linux__) || defined (__FreeBSD__)
-    // Register signal handlers so that the daemon may be shut down. You may
-    // also want to register for other signals, such as SIGHUP to trigger a
-    // re-read of a configuration file.
-    boost::asio::signal_set signals(io_service, SIGINT, SIGTERM);
-    signals.async_wait(boost::bind(&boost::asio::io_service::stop, &io_service));
-
     if (isDaemonize)
     {
-        // Inform the io_service that we are about to become a daemon. The
-        // io_service cleans up any internal resources, such as threads, that may
-        // interfere with forking.
-        io_service.notify_fork(boost::asio::io_service::fork_prepare);
-
         Daemonize();
-
         TTCP_LOGGER(info) << "Process is running as a daemon.";
-
-        // Inform the io_service that we have finished becoming a daemon. The
-        // io_service uses this opportunity to create any internal file descriptors
-        // that need to be private to the new process.
-        io_service.notify_fork(boost::asio::io_service::fork_child);
     }
 #endif
 
