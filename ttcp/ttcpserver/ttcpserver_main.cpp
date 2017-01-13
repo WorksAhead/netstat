@@ -176,7 +176,7 @@ int main(int argc, char* argv[])
         logging::core::get()->add_sink(consoleSink);
     }
 
-#if defined(NDEBUG)
+#if defined (NDEBUG)
     logging::core::get()->set_filter
     (
         logging::trivial::severity >= logging::trivial::info

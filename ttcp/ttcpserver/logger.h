@@ -19,7 +19,7 @@ namespace keywords = boost::log::keywords;
 
 BOOST_LOG_INLINE_GLOBAL_LOGGER_DEFAULT(ttcp_logger, src::severity_logger_mt<logging::trivial::severity_level>)
 
-#if defined(NDEBUG)
+#if defined (NDEBUG)
 #define LOG_FILE_LINE
 #define ADD_FILE_LINE_ATTRIBUTES
 #else
