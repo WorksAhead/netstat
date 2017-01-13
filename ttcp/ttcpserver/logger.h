@@ -7,6 +7,8 @@
 #include <boost/log/sources/global_logger_storage.hpp>
 #include <boost/log/support/date_time.hpp>
 #include <boost/log/expressions.hpp>
+#include <boost/log/utility/manipulators/add_value.hpp>
+#include <boost/log/attributes/fallback_policy.hpp>
 
 namespace logging = boost::log;
 namespace sinks = boost::log::sinks;
@@ -15,15 +17,25 @@ namespace expr = boost::log::expressions;
 namespace attrs = boost::log::attributes;
 namespace keywords = boost::log::keywords;
 
-#if defined(NDEBUG)
-#define TTCP_BOOST_LOG_FUNCTION
+BOOST_LOG_INLINE_GLOBAL_LOGGER_DEFAULT(ttcp_logger, src::severity_logger_mt<logging::trivial::severity_level>)
+
+#if defined (NDEBUG)
+#define LOG_FILE_LINE
+#define ADD_FILE_LINE_ATTRIBUTES
 #else
-#define TTCP_BOOST_LOG_FUNCTION BOOST_LOG_FUNCTION();
+// Convert file path to only the filename
+inline std::string path_to_filename(std::string path)
+{
+    return path.substr(path.find_last_of("/\\") + 1);
+}
+#define LOG_FILE_LINE \
+        << logging::add_value("File", path_to_filename(__FILE__)) << logging::add_value("Line", __LINE__)
+#define ADD_FILE_LINE_ATTRIBUTES \
+        << '[' << expr::attr<std::string>("File") << ':' << expr::attr<int>("Line") << "] "
 #endif
 
-BOOST_LOG_INLINE_GLOBAL_LOGGER_DEFAULT(ttcp_logger, src::severity_logger_mt<logging::trivial::severity_level>)
 #define TTCP_LOGGER(sev) \
-        TTCP_BOOST_LOG_FUNCTION \
         BOOST_LOG_SEV(ttcp_logger::get(), boost::log::trivial::sev) \
+        LOG_FILE_LINE \
 
 #endif // __NETSTAT_TTCP_LOGGER__

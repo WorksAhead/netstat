@@ -7,12 +7,8 @@ else
     BUILD_TYPE="Release"
 fi
 
-rm -rf ./cos-cpp-sdk-v4
-git clone https://github.com/tencentyun/cos-cpp-sdk-v4.git
+rm -rf ./build
+mkdir -p ./build
 
-rm -rf ./Build
-mkdir -p ./Build/Bin
-cp ./cosconfig.json ./Build/Bin
-
-cd Build
+cd build
 cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
