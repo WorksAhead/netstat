@@ -3,9 +3,11 @@
 
 #include <string>
 #include <array>
+#include <fstream>
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
 #include <boost/signals2.hpp>
+#include <boost/thread.hpp>
 
 namespace ttcp
 {
@@ -14,7 +16,7 @@ namespace ttcp
     class TTcpClient
     {
     public:
-        typedef boost::signals2::signal<void(const std::string&)> SignalType;
+        typedef boost::signals2::signal<void(const char*)> SignalType;
 
     public:
         // @notifyInterval: Callback interval in milliseconds.
@@ -28,11 +30,19 @@ namespace ttcp
         // This function would block the current thread that has invoked it.
         void Run();
 
+        // Jiang's
+        void set_log_file(const std::string& path);
+
     private:
         void HandleNotifySubscribers();
 
         void HandleConnect(const boost::system::error_code& error);
         void HandleWrite(const boost::system::error_code& error, std::size_t bytesTransferred);
+
+        // Jiang's
+        template<typename... Args>
+        void log(const char* s, Args... args);
+        void log(const char* s);
 
     private:
         bool m_Stop{false};
@@ -42,6 +52,7 @@ namespace ttcp
 
         boost::asio::io_service m_IOservice;
         boost::asio::ip::tcp::socket m_Socket;
+        boost::shared_ptr<boost::thread> m_Thread;
 
         // Notify the subscriber every 1000 msec during client is running as default.
         SignalType m_Signal;
@@ -57,6 +68,10 @@ namespace ttcp
         boost::chrono::duration<float> m_TotalWriteTime;
         boost::chrono::high_resolution_clock::time_point m_PacketBeginWrite;
         boost::chrono::high_resolution_clock::time_point m_PacketEndWrite;
+
+        // Jiang's
+        boost::shared_ptr<std::fstream> log_file_;
+        boost::mutex log_mutex;
     };
 }
 

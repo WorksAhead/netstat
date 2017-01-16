@@ -3,6 +3,7 @@
 
 #include <boost/program_options.hpp>
 #include <boost/asio.hpp>
+#include <boost/thread.hpp>
 
 const char* g_LogFilePath = "./ttcpserver.log";
 
@@ -124,19 +125,28 @@ int main(int argc, char* argv[])
         ("daemon,d", "Running as a daemon process.")
         ("address,i", po::value<std::string>(&address)->default_value("0.0.0.0"), "Bind address, default is 0.0.0.0.")
         ("port,p", po::value<std::string>(&port)->default_value("5001"), "Listen port, default is 5001.")
-        ("thread,n", po::value<int>(&threadNum)->default_value(4), "Worker thread number, default is 4.")
+        ("thread,n", po::value<int>(&threadNum)->default_value(boost::thread::hardware_concurrency()), "Worker thread number, default is number of CPUs or cores or hyperthreading units.")
         ;
 
     po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm);
+    try
+    {   
+        po::store(po::parse_command_line(argc, argv, desc), vm);
+        po::notify(vm);
+    }
+    catch (po::error& err)
+    {
+        std::cerr << "ERROR: " << err.what() << std::endl << std::endl;
+        std::cerr << desc << std::endl;
+        return -1;
+    }
 
     if (vm.count("help"))
     {
         std::cout << "Usage: ttcpserver [options]" << std::endl;
         std::cout << desc << std::endl;
         std::cout << "Bugs report to <cowcoa@163.com>" << std::endl;
-        exit(0);
+        return 0;
     }
 
 #if defined (__linux__) || defined (__FreeBSD__)
@@ -164,7 +174,8 @@ int main(int argc, char* argv[])
     if (isDaemonize)
     {
         auto fileSink = logging::add_file_log(
-            keywords::file_name = g_LogFilePath
+            keywords::file_name = g_LogFilePath,
+            keywords::auto_flush = true
         );
         fileSink->set_formatter(formatter);
         logging::core::get()->add_sink(fileSink);
@@ -192,8 +203,8 @@ int main(int argc, char* argv[])
 #if defined (__linux__) || defined (__FreeBSD__)
     if (isDaemonize)
     {
+        std::cout << "Process is running as a daemon." << std::endl;
         Daemonize();
-        TTCP_LOGGER(info) << "Process is running as a daemon.";
     }
 #endif
 
