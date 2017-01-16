@@ -38,6 +38,13 @@ void Connection::Start()
     m_RemoteAddr = m_Socket.remote_endpoint().address().to_string();
     m_RemotePort = boost::lexical_cast<std::string>(m_Socket.remote_endpoint().port());
 
+    boost::system::error_code ignored_ec;
+    m_Socket.set_option(boost::asio::ip::tcp::no_delay(true), ignored_ec);
+    if (ignored_ec)
+    {
+        TTCP_LOGGER(warning) << "Failed to set no_delay of socket [" << m_RemoteAddr << ":" << m_RemotePort << "], because of " << ignored_ec << ".";
+    }
+
     m_Socket.async_read_some(boost::asio::buffer(m_Buffer),
         boost::bind(&Connection::HandleRead, shared_from_this(),
             boost::asio::placeholders::error,

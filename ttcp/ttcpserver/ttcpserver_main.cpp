@@ -3,6 +3,7 @@
 
 #include <boost/program_options.hpp>
 #include <boost/asio.hpp>
+#include <boost/thread.hpp>
 
 const char* g_LogFilePath = "./ttcpserver.log";
 
@@ -124,7 +125,7 @@ int main(int argc, char* argv[])
         ("daemon,d", "Running as a daemon process.")
         ("address,i", po::value<std::string>(&address)->default_value("0.0.0.0"), "Bind address, default is 0.0.0.0.")
         ("port,p", po::value<std::string>(&port)->default_value("5001"), "Listen port, default is 5001.")
-        ("thread,n", po::value<int>(&threadNum)->default_value(4), "Worker thread number, default is 4.")
+        ("thread,n", po::value<int>(&threadNum)->default_value(boost::thread::hardware_concurrency()), "Worker thread number, default is number of CPUs or cores or hyperthreading units.")
         ;
 
     po::variables_map vm;
