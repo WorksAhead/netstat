@@ -25,7 +25,7 @@ add_library( # Sets the name of the library.
              # Provides a relative path to your source file(s).
              # Associated headers in the same location as their source
              # file are automatically included.
-             src/main/cpp/native-lib.cpp src/main/cpp/latency_client.cpp )
+             src/main/cpp/native-lib.cpp src/main/cpp/latency_client.cpp src/main/cpp/ttcpclient.cpp src/main/cpp/ttcpclient.h)
 
 find_library(boost_system-lib, boost_system, libs/boost_1_62_0/armeabi-v7a/lib/)
 

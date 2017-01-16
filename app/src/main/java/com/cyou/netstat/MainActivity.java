@@ -272,9 +272,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 	}
 
 	// public native String stringFromJNI();
-	public native boolean StartDelayTest(String logPath);
+	public native void StartDelayTest(String logPath);
 	public native void StopDelayTest();
-	public native boolean StartBandwidthTest(String logPath);
+	public native void StartBandwidthTest(String logPath);
 	public native void StopBandwidthTest();
 	public native boolean StartSpeedup();
 	public native void StopSpeedup();
