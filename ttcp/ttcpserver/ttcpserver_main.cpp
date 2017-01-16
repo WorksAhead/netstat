@@ -128,15 +128,24 @@ int main(int argc, char* argv[])
         ;
 
     po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm);
+    try
+    {   
+        po::store(po::parse_command_line(argc, argv, desc), vm);
+        po::notify(vm);
+    }
+    catch (po::error& err)
+    {
+        std::cerr << "ERROR: " << err.what() << std::endl << std::endl;
+        std::cerr << desc << std::endl;
+        return -1;
+    }
 
     if (vm.count("help"))
     {
         std::cout << "Usage: ttcpserver [options]" << std::endl;
         std::cout << desc << std::endl;
         std::cout << "Bugs report to <cowcoa@163.com>" << std::endl;
-        exit(0);
+        return 0;
     }
 
 #if defined (__linux__) || defined (__FreeBSD__)

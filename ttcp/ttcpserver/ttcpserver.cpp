@@ -18,7 +18,7 @@ TTcpServer::TTcpServer(const std::string& address,
     m_Signals.add(SIGTERM);
 #if defined(SIGQUIT)
     m_Signals.add(SIGQUIT);
-#endif // defined(SIGQUIT)
+#endif
     m_Signals.async_wait(boost::bind(&TTcpServer::HandleStop, this));
 
     // Open the acceptor with the option to reuse the address (i.e. SO_REUSEADDR).
