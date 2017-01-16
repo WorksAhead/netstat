@@ -16,6 +16,7 @@ if(UNIX)
     include_directories(${Boost_INCLUDE_DIRS})
 
     set(CMAKE_CXX_FLAGS -DBOOST_LOG_DYN_LINK)
+    set(EXTRA_LIBS pthread)
 endif()
 
 if(WIN32)
@@ -36,5 +37,5 @@ include_directories(./src)
 
 add_executable(ttcpclient_test ttcpclient_test.cpp)
 
-target_link_libraries(ttcpclient_test ttcpclient ${Boost_LIBRARIES} pthread)
+target_link_libraries(ttcpclient_test ttcpclient ${Boost_LIBRARIES} ${EXTRA_LIBS})
 target_compile_features(ttcpclient_test PRIVATE cxx_generalized_initializers)
