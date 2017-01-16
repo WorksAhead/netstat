@@ -24,7 +24,7 @@ Connection::Connection(boost::asio::io_service& IOService)
 
 Connection::~Connection()
 {
-    TTCP_LOGGER(debug) << "Connection destructor called.";
+
 }
 
 boost::asio::ip::tcp::socket& Connection::GetSocket()
