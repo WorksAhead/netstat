@@ -22,7 +22,11 @@ void NativeLogCallback(const char* message)
 {
 	char* copyMsg = (char*)malloc(strlen(message));
 	strcpy(copyMsg, message);
-	gLockfreeQueue.push(copyMsg);
+	if (!gLockfreeQueue.push(copyMsg))
+	{
+		// > 1024
+		free(copyMsg);
+	}
 }
 
 jint JNI_OnLoad(JavaVM* vm, void* reserved)

@@ -35,15 +35,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 	private PStateListener PhoneListener = null;
 	Timer timer = null;
 
+	private static boolean InitializeGuard = false;
+
 	@Override
 	public void onChronometerTick(Chronometer var1)
 	{
-		//LogUtil.LogToView("chronometer tick...", LogUtil.LogType.Info, false);
-
 		String logMsg = GetNativeLog();
 		if (logMsg != null)
 		{
-			LogUtil.LogToView(logMsg, LogUtil.LogType.Info, false);
+			String logMsgs[] = logMsg.split("\n");
+			for (String singleLog : logMsgs)
+			{
+				LogUtil.LogToView(singleLog, LogUtil.LogType.Info, false);
+			}
 		}
 	}
 
@@ -114,6 +118,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		GlobalInitialize();
 
 		LogUtil.LogToView("initialize finished.");
+
+		if (InitializeGuard)
+		{
+			LogUtil.LogToView("initialize multi times.", LogUtil.LogType.Critical);
+		}
+		InitializeGuard = true;
 	}
 
 	private void setWidgetsEnabled(boolean bEnable)
@@ -134,12 +144,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 			Clock.setBase(SystemClock.elapsedRealtime());
 			Clock.start();
 		}
-	}
-
-	public String LogFromNativeCode(String message)
-	{
-		LogUtil.LogToView(message, LogUtil.LogType.Info, false);
-		return "";
 	}
 
 	@Override
