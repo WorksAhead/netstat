@@ -46,6 +46,10 @@ namespace ttcp
         // Socket for the connection.
         boost::asio::ip::tcp::socket m_Socket;
 
+        // Remote address info.
+        std::string m_RemoteAddr;
+        std::string m_RemotePort;
+
         // Buffer for incoming data.
         boost::array<char, 8192> m_Buffer;
 

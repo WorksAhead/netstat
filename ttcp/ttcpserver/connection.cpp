@@ -1,6 +1,7 @@
 #include "connection.h"
 #include "logger.h"
 #include <boost/bind.hpp>
+#include <boost/lexical_cast.hpp>
 
 using namespace ttcp;
 
@@ -34,6 +35,9 @@ boost::asio::ip::tcp::socket& Connection::GetSocket()
 
 void Connection::Start()
 {
+    m_RemoteAddr = m_Socket.remote_endpoint().address().to_string();
+    m_RemotePort = boost::lexical_cast<std::string>(m_Socket.remote_endpoint().port());
+
     m_Socket.async_read_some(boost::asio::buffer(m_Buffer),
         boost::bind(&Connection::HandleRead, shared_from_this(),
             boost::asio::placeholders::error,
@@ -54,7 +58,7 @@ void Connection::HandleRead(const boost::system::error_code& err,
     }
     else
     {
-        TTCP_LOGGER(debug) << "Complete reading from " << m_Socket.remote_endpoint() << ", total bytes is " << m_TotalReadBytes << ".";
+        TTCP_LOGGER(debug) << "Complete reading from [" << m_RemoteAddr << ":" << m_RemotePort << "], total bytes is " << m_TotalReadBytes << ".";
         // Received EOF, close connection.
         Close();
     }
@@ -89,13 +93,13 @@ Connection::Close()
 {
     if (m_Socket.is_open())
     {
-        TTCP_LOGGER(info) << "Connection [" << m_Socket.remote_endpoint() << "] has closed.";
+        TTCP_LOGGER(info) << "Connection [" << m_RemoteAddr << ":" << m_RemotePort << "] has closed.";
 
         boost::system::error_code ignored_ec;
         m_Socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
         if (ignored_ec)
         {
-            TTCP_LOGGER(warning) << "Failed to shutdown socket of " << m_Socket.remote_endpoint() << ", because " << ignored_ec << ".";
+            TTCP_LOGGER(warning) << "Failed to shutdown socket of [" << m_RemoteAddr << ":" << m_RemotePort << "], because of " << ignored_ec << ".";
         }
     }
     s_ConnectionList.remove(shared_from_this());
