@@ -5,19 +5,6 @@
 using namespace ttcp;
 namespace po = boost::program_options;
 
-void ReportCB(const std::string& result)
-{
-    std::cout << "Uploading speed is " << result << std::endl;
-}
-
-void StopTTcpClient(const boost::system::error_code& error, TTcpClient* client)
-{
-    if (!error)
-    {
-        client->Stop();
-    }
-}
-
 typedef void(*ttcp_client_log_callback_t)(const char*);
 
 void* ttcp_client_create(const char* address, const char* port, uint32_t notifyInterval);
@@ -73,11 +60,10 @@ int main(int argc, char* argv[])
 
     //
     void* p = ttcp_client_create(address.c_str(), port.c_str(), 1000);
-
     if (p)
     {
         ttcp_client_set_log_callback(p, log);
-        ttcp_client_set_log_file(p, "./log.txt");
+        ttcp_client_set_log_file(p, "log.txt");
 
         for (int i = 0; i < 10; ++i)
         {
@@ -88,35 +74,6 @@ int main(int argc, char* argv[])
 
         ttcp_client_destory(p);
     }
-
-    //
-    /*
-    boost::asio::io_service io;
-
-    TTcpClient client(address, port, 1000);
-    client.RegisterCallback(&ReportCB);
-
-    client.Start();
-    boost::thread t(boost::bind(&TTcpClient::Run, &client));
-
-    boost::asio::deadline_timer writeLogTimer(io, boost::posix_time::seconds(10));
-    writeLogTimer.async_wait(boost::bind(StopTTcpClient, boost::asio::placeholders::error, &client));
-
-    io.run();
-    t.join();
-
-    std::cout << "**** Start again! ****" << std::endl;
-
-    client.Start();
-    boost::thread t2(boost::bind(&TTcpClient::Run, &client));
-
-    writeLogTimer.expires_at(writeLogTimer.expires_at() + boost::posix_time::seconds(10));
-    writeLogTimer.async_wait(boost::bind(StopTTcpClient, boost::asio::placeholders::error, &client));
-
-    io.reset();
-    io.run();
-    t2.join();
-    */
 
     return 0;
 }
