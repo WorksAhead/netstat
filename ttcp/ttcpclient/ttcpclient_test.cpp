@@ -18,6 +18,22 @@ void StopTTcpClient(const boost::system::error_code& error, TTcpClient* client)
     }
 }
 
+typedef void(*ttcp_client_log_callback_t)(const char*);
+
+void* ttcp_client_create(const char* address, const char* port, uint32_t notifyInterval);
+void ttcp_client_destory(void* instance);
+
+void ttcp_client_set_log_callback(void* instance, ttcp_client_log_callback_t log_callback);
+void ttcp_client_set_log_file(void* instance, const char* filename);
+
+void ttcp_client_start(void* instance);
+void ttcp_client_stop(void* instance);
+
+void log(const char* msg)
+{
+    std::cout << msg << std::endl;
+}
+
 int main(int argc, char* argv[])
 {
     // Get command line arguments.
@@ -56,6 +72,25 @@ int main(int argc, char* argv[])
     port = vm["port"].as<std::string>();
 
     //
+    void* p = ttcp_client_create(address.c_str(), port.c_str(), 1000);
+
+    if (p)
+    {
+        ttcp_client_set_log_callback(p, log);
+        ttcp_client_set_log_file(p, "./log.txt");
+
+        for (int i = 0; i < 10; ++i)
+        {
+            ttcp_client_start(p);
+            boost::this_thread::sleep_for(boost::chrono::seconds(30));
+            ttcp_client_stop(p);
+        }
+
+        ttcp_client_destory(p);
+    }
+
+    //
+    /*
     boost::asio::io_service io;
 
     TTcpClient client(address, port, 1000);
@@ -81,6 +116,7 @@ int main(int argc, char* argv[])
     io.reset();
     io.run();
     t2.join();
+    */
 
     return 0;
 }
