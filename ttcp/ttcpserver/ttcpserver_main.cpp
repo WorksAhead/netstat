@@ -164,7 +164,8 @@ int main(int argc, char* argv[])
     if (isDaemonize)
     {
         auto fileSink = logging::add_file_log(
-            keywords::file_name = g_LogFilePath
+            keywords::file_name = g_LogFilePath,
+            keywords::auto_flush = true
         );
         fileSink->set_formatter(formatter);
         logging::core::get()->add_sink(fileSink);
@@ -192,8 +193,8 @@ int main(int argc, char* argv[])
 #if defined (__linux__) || defined (__FreeBSD__)
     if (isDaemonize)
     {
+        std::cout << "Process is running as a daemon." << std::endl;
         Daemonize();
-        TTCP_LOGGER(info) << "Process is running as a daemon.";
     }
 #endif
 
