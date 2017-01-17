@@ -9,6 +9,7 @@
 #include <boost/log/expressions.hpp>
 #include <boost/log/utility/manipulators/add_value.hpp>
 #include <boost/log/attributes/fallback_policy.hpp>
+#include <boost/filesystem.hpp>
 
 namespace logging = boost::log;
 namespace sinks = boost::log::sinks;
@@ -23,13 +24,8 @@ BOOST_LOG_INLINE_GLOBAL_LOGGER_DEFAULT(ttcp_logger, src::severity_logger_mt<logg
 #define LOG_FILE_LINE
 #define ADD_FILE_LINE_ATTRIBUTES
 #else
-// Convert file path to only the filename
-inline std::string path_to_filename(std::string path)
-{
-    return path.substr(path.find_last_of("/\\") + 1);
-}
 #define LOG_FILE_LINE \
-        << logging::add_value("File", path_to_filename(__FILE__)) << logging::add_value("Line", __LINE__)
+        << logging::add_value("File", boost::filesystem::basename(__FILE__)) << logging::add_value("Line", __LINE__)
 #define ADD_FILE_LINE_ATTRIBUTES \
         << '[' << expr::attr<std::string>("File") << ':' << expr::attr<int>("Line") << "] "
 #endif

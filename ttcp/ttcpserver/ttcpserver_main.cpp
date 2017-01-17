@@ -4,8 +4,10 @@
 #include <boost/program_options.hpp>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/format.hpp>
 
-const char* g_LogFilePath = "./ttcpserver.log";
+std::string g_LogFilePath;
 
 #if defined (__linux__) || defined (__FreeBSD__)
 # include <unistd.h>
@@ -90,7 +92,7 @@ void Daemonize()
     }
 
     // Send standard output to a log file.
-    const char* output = g_LogFilePath;
+    const char* output = g_LogFilePath.c_str();
     const int flags = O_WRONLY | O_CREAT | O_APPEND;
     const mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
     if (open(output, flags, mode) < 0)
@@ -113,6 +115,8 @@ namespace po = boost::program_options;
 
 int main(int argc, char* argv[])
 {
+    g_LogFilePath = boost::str(boost::format("./%1%.log") % boost::filesystem::basename(argv[0]));
+
     // Get command line arguments.
     std::string address;
     std::string port;
