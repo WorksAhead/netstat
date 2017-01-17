@@ -17,9 +17,9 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.ToggleButton;
 
+import java.io.DataOutputStream;
 import java.io.File;
 import java.util.Locale;
-import java.util.Timer;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener
 	, Switch.OnCheckedChangeListener, Chronometer.OnChronometerTickListener
@@ -33,9 +33,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 	private String LogPath = null;
 
 	private PStateListener PhoneListener = null;
-	Timer timer = null;
 
 	private static boolean InitializeGuard = false;
+	private static long BaseClockTime = 0;
 
 	@Override
 	public void onChronometerTick(Chronometer var1)
@@ -49,6 +49,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 				LogUtil.LogToView(singleLog, LogUtil.LogType.Info, false);
 			}
 		}
+		BaseClockTime = var1.getBase();
 	}
 
 	@Override
@@ -75,36 +76,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		// mode switch
 		BandwidthRadio = (RadioButton)findViewById(R.id.bandwidthRadio);
 		DelayRadio = (RadioButton)findViewById(R.id.delayRadio);
-		DelayRadio.setChecked(true);
 
 		// phone listener
 		PhoneListener = new PStateListener();
 		TelephonyManager Tel = (TelephonyManager)getSystemService(Context.TELEPHONY_SERVICE);
 		Tel.listen(PhoneListener, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
-
-		// initialize log utility
-		LogUtil.SetTextView(LogView);
-
-		LogUtil.LogToView("global initializing...");
-
-		try
-		{
-			File path = getWindow().getContext().getExternalFilesDir("netstatlog");
-			if( !path.exists() && !path.mkdirs())
-			{
-				LogUtil.LogToView("error when make log path !", LogUtil.LogType.Critical);
-			}
-
-			LogPath = path.getAbsolutePath();
-			GlobalState.SetLogPath(LogPath);
-		}
-		catch(Exception e)
-		{
-			LogUtil.LogToView("error when set log path !", LogUtil.LogType.Critical);
-		}
-
-		// disable widgets
-		setWidgetsEnabled(false);
 
 		/// register all events
 
@@ -114,16 +90,60 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		SpeedSwitch.setOnCheckedChangeListener(this);
 		Clock.setOnChronometerTickListener(this);
 
-		/// initialize native libraries
-		GlobalInitialize();
+		// initialize log utility
+		LogUtil.SetTextView(LogView);
+		LogUtil.LogToView("global initializing...");
 
-		LogUtil.LogToView("initialize finished.");
-
-		if (InitializeGuard)
+		if (!InitializeGuard)
 		{
-			LogUtil.LogToView("initialize multi times.", LogUtil.LogType.Critical);
+			try
+			{
+				File path = getWindow().getContext().getExternalFilesDir("netstatlog");
+				if( !path.exists() && !path.mkdirs())
+				{
+					LogUtil.LogToView("error when make log path !", LogUtil.LogType.Critical);
+				}
+
+				LogPath = path.getAbsolutePath();
+				GlobalState.SetLogPath(LogPath);
+			}
+			catch(Exception e)
+			{
+				LogUtil.LogToView("error when set log path !", LogUtil.LogType.Critical);
+			}
+
+			// disable widgets
+			DelayRadio.setChecked(true);
+			setWidgetsEnabled(false);
+
+			/// initialize native libraries
+			GlobalInitialize();
+
+			/// try get root permission
+			if (upgradeRootPermission(getPackageCodePath()))
+			{
+				LogUtil.LogToView("get root permission success.", LogUtil.LogType.Info);
+			}
+			else
+			{
+				LogUtil.LogToView("get root permission fail.", LogUtil.LogType.Info);
+			}
+		}
+		else
+		{
+			if (GlobalState.IsRunning())
+			{
+				Clock.setBase(BaseClockTime);
+				Clock.start();
+			}
+			else
+			{
+				Clock.setBase(BaseClockTime);
+			}
 		}
 		InitializeGuard = true;
+
+		LogUtil.LogToView("initialize finished.");
 	}
 
 	private void setWidgetsEnabled(boolean bEnable)
@@ -269,6 +289,41 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		}
 
 		return super.onOptionsItemSelected(item);
+	}
+
+	public static boolean upgradeRootPermission(String pkgCodePath)
+	{
+		Process process = null;
+		DataOutputStream os = null;
+		try
+		{
+			String cmd="chmod 777 " + pkgCodePath;
+			process = Runtime.getRuntime().exec("su");
+			os = new DataOutputStream(process.getOutputStream());
+			os.writeBytes(cmd + "\n");
+			os.writeBytes("exit\n");
+			os.flush();
+			process.waitFor();
+		}
+		catch (Exception e)
+		{
+			return false;
+		}
+		finally
+		{
+			try
+			{
+				if (os != null)
+				{
+					os.close();
+				}
+				process.destroy();
+			}
+			catch (Exception e)
+			{
+			}
+		}
+		return true;
 	}
 
 	// public native String stringFromJNI();
