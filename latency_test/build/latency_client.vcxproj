@@ -83,6 +83,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\latency_client\icmp_client.cpp" />
     <ClCompile Include="..\latency_client\latency_client.cpp" />
     <ClCompile Include="..\latency_client\main.cpp" />
   </ItemGroup>

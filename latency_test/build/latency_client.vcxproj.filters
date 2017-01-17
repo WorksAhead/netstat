@@ -21,5 +21,8 @@
     <ClCompile Include="..\latency_client\latency_client.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\latency_client\icmp_client.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
