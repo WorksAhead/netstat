@@ -3,8 +3,11 @@
 
 #include <boost/program_options.hpp>
 #include <boost/asio.hpp>
+#include <boost/thread.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/format.hpp>
 
-const char* g_LogFilePath = "./ttcpserver.log";
+std::string g_LogFilePath;
 
 #if defined (__linux__) || defined (__FreeBSD__)
 # include <unistd.h>
@@ -89,7 +92,7 @@ void Daemonize()
     }
 
     // Send standard output to a log file.
-    const char* output = g_LogFilePath;
+    const char* output = g_LogFilePath.c_str();
     const int flags = O_WRONLY | O_CREAT | O_APPEND;
     const mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
     if (open(output, flags, mode) < 0)
@@ -112,27 +115,42 @@ namespace po = boost::program_options;
 
 int main(int argc, char* argv[])
 {
+    g_LogFilePath = boost::str(boost::format("./%1%.log") % boost::filesystem::basename(argv[0]));
+
     // Get command line arguments.
-    unsigned short listenPort;
+    std::string address;
+    std::string port;
+    int threadNum;
     bool isDaemonize = false;
 
     po::options_description desc("Allowed options");
     desc.add_options()
         ("help,h", "Produce help message.")
         ("daemon,d", "Running as a daemon process.")
-        ("port,p", po::value<unsigned short>(&listenPort)->default_value(5001), "Listen port, default is 5001.")
+        ("address,i", po::value<std::string>(&address)->default_value("0.0.0.0"), "Bind address, default is 0.0.0.0.")
+        ("port,p", po::value<std::string>(&port)->default_value("5001"), "Listen port, default is 5001.")
+        ("thread,n", po::value<int>(&threadNum)->default_value(boost::thread::hardware_concurrency()), "Worker thread number, default is number of CPUs or cores or hyperthreading units.")
         ;
 
     po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm);
+    try
+    {   
+        po::store(po::parse_command_line(argc, argv, desc), vm);
+        po::notify(vm);
+    }
+    catch (po::error& err)
+    {
+        std::cerr << "ERROR: " << err.what() << std::endl << std::endl;
+        std::cerr << desc << std::endl;
+        return -1;
+    }
 
     if (vm.count("help"))
     {
         std::cout << "Usage: ttcpserver [options]" << std::endl;
         std::cout << desc << std::endl;
         std::cout << "Bugs report to <cowcoa@163.com>" << std::endl;
-        exit(0);
+        return 0;
     }
 
 #if defined (__linux__) || defined (__FreeBSD__)
@@ -142,16 +160,16 @@ int main(int argc, char* argv[])
     }
 #endif
 
-    if (vm.count("port"))
-    {
-        listenPort = vm["port"].as<unsigned short>();
-    }
+    address = vm["address"].as<std::string>();
+    port = vm["port"].as<std::string>();
+    threadNum = vm["thread"].as<int>();
 
     // Init log system.
     logging::formatter formatter =
         expr::stream
         << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%d_%H:%M:%S.%f")
         << ": <" << boost::log::trivial::severity << "> "
+        << "[" << expr::attr<attrs::current_thread_id::value_type>("ThreadID") << "] "
         ADD_FILE_LINE_ATTRIBUTES
         << expr::smessage;
 
@@ -160,7 +178,8 @@ int main(int argc, char* argv[])
     if (isDaemonize)
     {
         auto fileSink = logging::add_file_log(
-            keywords::file_name = g_LogFilePath
+            keywords::file_name = g_LogFilePath,
+            keywords::auto_flush = true
         );
         fileSink->set_formatter(formatter);
         logging::core::get()->add_sink(fileSink);
@@ -172,58 +191,31 @@ int main(int argc, char* argv[])
         logging::core::get()->add_sink(consoleSink);
     }
 
-#if defined(NDEBUG)
+#if defined (NDEBUG)
     logging::core::get()->set_filter
     (
         logging::trivial::severity >= logging::trivial::info
     );
 #endif
 
-    TTCP_LOGGER(info) << "test";
-
-    TTCP_LOGGER(info) << "test";
-    TTCP_LOGGER(info) << "test";
-    TTCP_LOGGER(info) << "test";
-    while (1)
-    {
-    }
-
-    // Ready to run server.
-    boost::asio::io_service io_service;
-
     // Initialise the server before becoming a daemon. If the process is
     // started from a shell, this means any errors will be reported back to the
     // user.
-    TTcpServer server(io_service, listenPort);
+    TTcpServer server(address, port, threadNum);
 
     // Run as daemon or not.
 #if defined (__linux__) || defined (__FreeBSD__)
-    // Register signal handlers so that the daemon may be shut down. You may
-    // also want to register for other signals, such as SIGHUP to trigger a
-    // re-read of a configuration file.
-    boost::asio::signal_set signals(io_service, SIGINT, SIGTERM);
-    signals.async_wait(boost::bind(&boost::asio::io_service::stop, &io_service));
-
     if (isDaemonize)
     {
-        // Inform the io_service that we are about to become a daemon. The
-        // io_service cleans up any internal resources, such as threads, that may
-        // interfere with forking.
-        io_service.notify_fork(boost::asio::io_service::fork_prepare);
-
+        std::cout << "Process is running as a daemon." << std::endl;
         Daemonize();
-
-        TTCP_LOGGER(info) << "Process is running as a daemon.";
-
-        // Inform the io_service that we have finished becoming a daemon. The
-        // io_service uses this opportunity to create any internal file descriptors
-        // that need to be private to the new process.
-        io_service.notify_fork(boost::asio::io_service::fork_child);
     }
 #endif
 
     // Server run.
-    io_service.run();
+    TTCP_LOGGER(info) << "Server is running.";
+    server.Run();
+    TTCP_LOGGER(info) << "Server is shutting down.";
 
     return 0;
 }

@@ -1,59 +1,72 @@
 #ifndef __NETSTAT_TTCP_CONNECTION__
 #define __NETSTAT_TTCP_CONNECTION__
 
+#include <array>
 #include <boost/asio.hpp>
 #include <boost/array.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
+#include <boost/container/slist.hpp>
+#include <boost/chrono.hpp>
 
 namespace ttcp
 {
-    /// Represents a single connection from a client.
-    class connection
-        : public boost::enable_shared_from_this<connection>,
-         private boost::noncopyable
+    #define BUFF_SIZE 8192
+
+    class Connection;
+    typedef boost::shared_ptr<Connection> ConnectionPtr;
+
+    // Represents a single connection from a client.
+    class Connection
+        : public boost::enable_shared_from_this<Connection>,
+        private boost::noncopyable
     {
     public:
-        /// Construct a connection with the given io_service.
-        explicit connection(boost::asio::io_service& io_service,
-            request_handler& handler);
+        static ConnectionPtr Create(boost::asio::io_service& IOService);
 
-        /// Get the socket associated with the connection.
-        boost::asio::ip::tcp::socket& socket();
+        // Construct a connection with the given io_service.
+        explicit Connection(boost::asio::io_service& IOService);
+        ~Connection();
 
-        /// Start the first asynchronous operation for the connection.
-        void start();
+        // Get the socket associated with the connection.
+        boost::asio::ip::tcp::socket& GetSocket();
+
+        // Start the first asynchronous operation for the connection.
+        void Start();
+        // Close the connection and remove itself from s_ConnectionList.
+        void Close();
 
     private:
-        /// Handle completion of a read operation.
-        void handle_read(const boost::system::error_code& e,
-            std::size_t bytes_transferred);
+        // Handle completion of a read operation.
+        void HandleRead(const boost::system::error_code& err, std::size_t bytes_transferred);
+        // Print the statistical information of this transmission during this connection.
+        void PrintResult();
 
-        /// Handle completion of a write operation.
-        void handle_write(const boost::system::error_code& e);
+    private:
+        // Socket for the connection.
+        boost::asio::ip::tcp::socket m_Socket;
 
-        /// Socket for the connection.
-        boost::asio::ip::tcp::socket socket_;
+        // Remote address info.
+        std::string m_RemoteAddr;
+        std::string m_RemotePort;
 
-        /// The handler used to process the incoming request.
-        request_handler& request_handler_;
+        // Buffer for incoming data.
+        boost::array<char, 8192> m_Buffer;
 
-        /// Buffer for incoming data.
-        boost::array<char, 8192> buffer_;
+        std::array<char, BUFF_SIZE> m_RevBuff;
+        std::array<char, BUFF_SIZE> m_SndBuff;
 
-        /// The incoming request.
-        request request_;
+        // Received data statistic.
+        uint64_t m_TotalReadBytes;
+        boost::chrono::duration<float> m_TotalReadTimes;
+        boost::chrono::high_resolution_clock::time_point m_PacketBeginRead;
+        boost::chrono::high_resolution_clock::time_point m_PacketEndRead;
 
-        /// The parser for the incoming request.
-        request_parser request_parser_;
-
-        /// The reply to be sent back to the client.
-        reply reply_;
+        // Global activity connections.
+        typedef boost::container::slist<ConnectionPtr> ConnectionList;
+        static ConnectionList s_ConnectionList;
     };
-
-    typedef boost::shared_ptr<connection> connection_ptr;
-
 }
 
 #endif // __NETSTAT_TTCP_CONNECTION__

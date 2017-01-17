@@ -1,93 +1,138 @@
-//
-// connection.cpp
-// ~~~~~~~~~~~~~~
-//
-// Copyright (c) 2003-2016 Christopher M. Kohlhoff (chris at kohlhoff dot com)
-//
-// Distributed under the Boost Software License, Version 1.0. (See accompanying
-// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
-//
-
 #include "connection.h"
-#include <vector>
+#include "logger.h"
 #include <boost/bind.hpp>
-#include "request_handler.hpp"
+#include <boost/lexical_cast.hpp>
+#include <boost/format.hpp>
 
-namespace http {
-namespace server2 {
+using namespace ttcp;
 
-connection::connection(boost::asio::io_service& io_service,
-    request_handler& handler)
-  : socket_(io_service),
-    request_handler_(handler)
+Connection::ConnectionList Connection::s_ConnectionList;
+
+ConnectionPtr
+Connection::Create(boost::asio::io_service& IOService)
 {
+    ConnectionPtr conn(new Connection(IOService));
+    s_ConnectionList.push_front(conn);
+    return conn;
 }
 
-boost::asio::ip::tcp::socket& connection::socket()
+Connection::Connection(boost::asio::io_service& IOService)
+    : m_Socket(IOService)
+    , m_TotalReadBytes(0)
 {
-  return socket_;
+
 }
 
-void connection::start()
+Connection::~Connection()
 {
-  socket_.async_read_some(boost::asio::buffer(buffer_),
-      boost::bind(&connection::handle_read, shared_from_this(),
-        boost::asio::placeholders::error,
-        boost::asio::placeholders::bytes_transferred));
+
 }
 
-void connection::handle_read(const boost::system::error_code& e,
+boost::asio::ip::tcp::socket& Connection::GetSocket()
+{
+    return m_Socket;
+}
+
+void Connection::Start()
+{
+    // Reset data.
+    m_TotalReadBytes = 0;
+
+    m_PacketBeginRead = boost::chrono::high_resolution_clock::now();
+    m_PacketEndRead = boost::chrono::high_resolution_clock::now();
+    m_TotalReadTimes = boost::chrono::duration<float>::zero();
+
+    // Save address and port.
+    m_RemoteAddr = m_Socket.remote_endpoint().address().to_string();
+    m_RemotePort = boost::lexical_cast<std::string>(m_Socket.remote_endpoint().port());
+
+    // Set no delay flag.
+    boost::system::error_code ignored_ec;
+    m_Socket.set_option(boost::asio::ip::tcp::no_delay(true), ignored_ec);
+    if (ignored_ec)
+    {
+        TTCP_LOGGER(warning) << "Failed to set no_delay of socket [" << m_RemoteAddr << ":" << m_RemotePort << "], because of " << ignored_ec << ".";
+    }
+
+    // OK, it's time to read data.
+    m_Socket.async_read_some(boost::asio::buffer(m_Buffer),
+        boost::bind(&Connection::HandleRead, shared_from_this(),
+            boost::asio::placeholders::error,
+            boost::asio::placeholders::bytes_transferred));
+}
+
+void Connection::HandleRead(const boost::system::error_code& err,
     std::size_t bytes_transferred)
 {
-  if (!e)
-  {
-    boost::tribool result;
-    boost::tie(result, boost::tuples::ignore) = request_parser_.parse(
-        request_, buffer_.data(), buffer_.data() + bytes_transferred);
+    if (!err)
+    {
+        // Collect data.
+        m_TotalReadBytes += bytes_transferred;
+        m_PacketEndRead = boost::chrono::high_resolution_clock::now();
+        m_TotalReadTimes = m_PacketEndRead - m_PacketBeginRead;
 
-    if (result)
-    {
-      request_handler_.handle_request(request_, reply_);
-      boost::asio::async_write(socket_, reply_.to_buffers(),
-          boost::bind(&connection::handle_write, shared_from_this(),
-            boost::asio::placeholders::error));
-    }
-    else if (!result)
-    {
-      reply_ = reply::stock_reply(reply::bad_request);
-      boost::asio::async_write(socket_, reply_.to_buffers(),
-          boost::bind(&connection::handle_write, shared_from_this(),
-            boost::asio::placeholders::error));
+        // Read again and again...
+        m_Socket.async_read_some(boost::asio::buffer(m_RevBuff),
+            boost::bind(&Connection::HandleRead, shared_from_this(),
+                boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred));
     }
     else
     {
-      socket_.async_read_some(boost::asio::buffer(buffer_),
-          boost::bind(&connection::handle_read, shared_from_this(),
-            boost::asio::placeholders::error,
-            boost::asio::placeholders::bytes_transferred));
+        // Received EOF, close connection.
+        PrintResult();
+        Close();
     }
-  }
-
-  // If an error occurs then no new asynchronous operations are started. This
-  // means that all shared_ptr references to the connection object will
-  // disappear and the object will be destroyed automatically after this
-  // handler returns. The connection class's destructor closes the socket.
 }
 
-void connection::handle_write(const boost::system::error_code& e)
+void
+Connection::Close()
 {
-  if (!e)
-  {
-    // Initiate graceful connection closure.
-    boost::system::error_code ignored_ec;
-    socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
-  }
+    if (m_Socket.is_open())
+    {
+        TTCP_LOGGER(info) << "Connection [" << m_RemoteAddr << ":" << m_RemotePort << "] has closed.";
 
-  // No new asynchronous operations are started. This means that all shared_ptr
-  // references to the connection object will disappear and the object will be
-  // destroyed automatically after this handler returns. The connection class's
-  // destructor closes the socket.
+        boost::system::error_code ignored_ec;
+        m_Socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
+        if (ignored_ec)
+        {
+            TTCP_LOGGER(warning) << "Failed to shutdown socket of [" << m_RemoteAddr << ":" << m_RemotePort << "], because of " << ignored_ec << ".";
+        }
+    }
+    s_ConnectionList.remove(shared_from_this());
 }
 
-} // namespace server2
-} // namespace http
+void
+Connection::PrintResult()
+{
+    double totalBps = m_TotalReadBytes / m_TotalReadTimes.count();
+    double totalKBps = 0;
+    double totalMBps = 0;
+    if (totalBps > 1024)
+    {
+        totalKBps = totalBps / 1024;
+    }
+    if (totalKBps > 1024)
+    {
+        totalMBps = totalKBps / 1024;
+    }
+
+    std::string outputString;
+    if (totalMBps > 0)
+    {
+        outputString = boost::str(boost::format("Received data %1% MB from [%2%:%3%] in %4% real seconds = %5% MB/sec +++") 
+                                                % (m_TotalReadBytes / 1024.0 / 1024.0) % m_RemoteAddr % m_RemotePort % m_TotalReadTimes.count() % totalMBps);
+    }
+    else if (totalKBps > 0)
+    {
+        outputString = boost::str(boost::format("Received data %1% KB from [%2%:%3%] in %4% real seconds = %5% KB/sec +++")
+            % (m_TotalReadBytes / 1024.0) % m_RemoteAddr % m_RemotePort % m_TotalReadTimes.count() % totalKBps);
+    }
+    else
+    {
+        outputString = boost::str(boost::format("Received data %1% Bytes from [%2%:%3%] in %4% real seconds = %5% Bytes/sec +++")
+            % m_TotalReadBytes % m_RemoteAddr % m_RemotePort % m_TotalReadTimes.count() % m_TotalReadBytes);
+    }
+    
+    TTCP_LOGGER(debug) << outputString << ".";
+}

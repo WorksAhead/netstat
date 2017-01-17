@@ -6,7 +6,7 @@ android {
     defaultConfig {
         applicationId "com.cyou.netstat"
         minSdkVersion 19
-        targetSdkVersion 24
+        targetSdkVersion 19
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
@@ -14,6 +14,12 @@ android {
             cmake {
                 cppFlags "-std=c++11 -frtti -fexceptions"
             }
+        }
+
+        ndk {
+            // Specifies the ABI configurations of your native
+            // libraries Gradle should build and package with your APK.
+            abiFilters 'armeabi-v7a'
         }
     }
     buildTypes {
