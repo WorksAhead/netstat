@@ -87,7 +87,8 @@ public:
 		try {
 			boost::asio::ip::tcp::resolver::query query(host, service);
 			boost::asio::io_service service;
-			iter_ = boost::asio::ip::tcp::resolver(service).resolve(query);
+			boost::asio::ip::tcp::resolver::iterator it = boost::asio::ip::tcp::resolver(service).resolve(query);
+			endpoint_ = *it;
 		}
 		catch (boost::system::error_code& ec) {
 			log("set endpoint exception %1%", ec.message());
@@ -150,8 +151,8 @@ private:
 	{
 		socket_ptr socket(new boost::asio::ip::tcp::socket(*service_));
 
-		boost::asio::async_connect(*socket, iter_,
-			boost::bind(&latency_client::handle_connect, this, socket, boost::placeholders::_1, boost::placeholders::_2));
+		socket->async_connect(endpoint_,
+			boost::bind(&latency_client::handle_connect, this, socket, boost::placeholders::_1));
 	}
 
 	void start_deferred_connect()
@@ -185,7 +186,7 @@ private:
 			boost::bind(&latency_client::handle_read, this, socket, boost::placeholders::_1, boost::placeholders::_2));
 	}
 
-	void handle_connect(socket_ptr socket, const boost::system::error_code& ec, boost::asio::ip::tcp::resolver::iterator)
+	void handle_connect(socket_ptr socket, const boost::system::error_code& ec)
 	{
 		if (ec)
 		{
@@ -320,7 +321,7 @@ private:
 
 	boost::mutex log_mutex;
 
-	boost::asio::ip::tcp::resolver::iterator iter_;
+	boost::asio::ip::tcp::endpoint endpoint_;
 
 	boost::shared_ptr<boost::asio::io_service> service_;
 
