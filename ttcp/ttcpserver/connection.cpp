@@ -83,30 +83,6 @@ void Connection::HandleRead(const boost::system::error_code& err,
         PrintResult();
         Close();
     }
-
-    // If an error occurs then no new asynchronous operations are started. This
-    // means that all shared_ptr references to the connection object will
-    // disappear and the object will be destroyed automatically after this
-    // handler returns. The connection class's destructor closes the socket.
-}
-
-void Connection::HandleWrite(const boost::system::error_code& err)
-{
-    if (!err)
-    {
-        // Initiate graceful connection closure.
-        //boost::system::error_code ignored_ec;
-        //socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
-    }
-    else
-    {
-        TTCP_LOGGER(debug) << "write failed.";
-    }
-
-    // No new asynchronous operations are started. This means that all shared_ptr
-    // references to the connection object will disappear and the object will be
-    // destroyed automatically after this handler returns. The connection class's
-    // destructor closes the socket.
 }
 
 void

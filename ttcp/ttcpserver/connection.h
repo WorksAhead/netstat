@@ -40,8 +40,6 @@ namespace ttcp
     private:
         // Handle completion of a read operation.
         void HandleRead(const boost::system::error_code& err, std::size_t bytes_transferred);
-        // Handle completion of a write operation.
-        void HandleWrite(const boost::system::error_code& err);
         // Print the statistical information of this transmission during this connection.
         void PrintResult();
 
@@ -59,12 +57,13 @@ namespace ttcp
         std::array<char, BUFF_SIZE> m_RevBuff;
         std::array<char, BUFF_SIZE> m_SndBuff;
 
-        // Totally 
+        // Received data statistic.
         uint64_t m_TotalReadBytes;
         boost::chrono::duration<float> m_TotalReadTimes;
         boost::chrono::high_resolution_clock::time_point m_PacketBeginRead;
         boost::chrono::high_resolution_clock::time_point m_PacketEndRead;
 
+        // Global activity connections.
         typedef boost::container::slist<ConnectionPtr> ConnectionList;
         static ConnectionList s_ConnectionList;
     };
