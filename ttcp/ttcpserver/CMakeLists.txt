@@ -20,6 +20,10 @@ if(UNIX)
 endif()
 
 if(WIN32)
+    # warning C4819: The file contains a character that cannot be represented 
+	# in the current code page (936). Save the file in Unicode format to prevent data loss
+    add_compile_options(/wd"4819")
+
 	add_definitions(-DWINVER=0x0A00 -D_WIN32_WINNT=0x0A00)
 endif()
 

@@ -8,6 +8,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/container/slist.hpp>
+#include <boost/chrono.hpp>
 
 namespace ttcp
 {
@@ -41,6 +42,8 @@ namespace ttcp
         void HandleRead(const boost::system::error_code& err, std::size_t bytes_transferred);
         // Handle completion of a write operation.
         void HandleWrite(const boost::system::error_code& err);
+        // Print the statistical information of this transmission during this connection.
+        void PrintResult();
 
     private:
         // Socket for the connection.
@@ -58,7 +61,9 @@ namespace ttcp
 
         // Totally 
         uint64_t m_TotalReadBytes;
-        uint64_t m_TotalWriteBytes;
+        boost::chrono::duration<float> m_TotalReadTimes;
+        boost::chrono::high_resolution_clock::time_point m_PacketBeginRead;
+        boost::chrono::high_resolution_clock::time_point m_PacketEndRead;
 
         typedef boost::container::slist<ConnectionPtr> ConnectionList;
         static ConnectionList s_ConnectionList;
