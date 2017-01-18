@@ -8,3 +8,8 @@
 /captures
 .externalNativeBuild
 /ttcp/build
+/huawei_api/build
+/huawei_api/curl/build
+/latency_test/intermediate
+/latency_test/build/*.VC.db
+/latency_test/bin
