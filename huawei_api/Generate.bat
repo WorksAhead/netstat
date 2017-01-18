@@ -3,7 +3,7 @@ IF NOT EXIST curl (
 	cd curl
 	mkdir build
 	cd build
-	cmake -G "Visual Studio 14 2015 Win64" -DCURL_STATICLIB=1 ..
+	cmake -G "Visual Studio 14 2015 Win64" -DCURL_STATICLIB=1 -DBUILD_CURL_EXE=0 -DBUILD_TESTING=0 ..
 	"C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild.exe" /property:Configuration=Release lib\libcurl.vcxproj
 	"C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild.exe" /property:Configuration=Debug lib\libcurl.vcxproj
 	cd ..\..\

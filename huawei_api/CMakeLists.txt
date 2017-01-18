@@ -16,7 +16,9 @@ if(UNIX)
     include_directories(${Boost_INCLUDE_DIRS})
 
     set(CMAKE_CXX_FLAGS -DBOOST_LOG_DYN_LINK)
-    set(EXTRA_LIBS pthread)
+    set(EXTRA_LIBS pthread ssl z crypto dl)
+    set(CURL_PATH_PREFIX ".")
+    set(CURL_LIB_NAME "curl")
 endif()
 
 if(WIN32)
@@ -30,7 +32,8 @@ if(WIN32)
     # So feel free to ignore the warning. It doesn't mean there's anything wrong with your code. 
     # It is just saying that if there is something wrong with your code, then bad things will happen. Which is an odd thing to issue warnings about
     add_definitions(-D_SCL_SECURE_NO_WARNINGS)
-	set(EXTRA_LIBS ws2_32 wldap32 crypt32)
+    set(EXTRA_LIBS ws2_32 wldap32 crypt32)
+    set(CURL_LIB_NAME "libcurl")
 endif()
 
 find_package(CURL
@@ -38,12 +41,12 @@ find_package(CURL
              REQUIRED
              COMPONENTS
              curl)
-include_directories(${CURL_INCLUDE_DIRS})
-include_directories(${CURL_INCLUDE_DIRS}/../build/include/curl)
-link_directories(${CURL_LIBRARIES})
+include_directories("${CURL_PATH_PREFIX}${CURL_INCLUDE_DIRS}")
+include_directories("${CURL_PATH_PREFIX}${CURL_INCLUDE_DIRS}/../build/include/curl")
+link_directories("${CURL_PATH_PREFIX}${CURL_LIBRARIES}")
 add_definitions(-DCURL_STATICLIB)
 
 add_executable(huawei_api_test huawei_api_test.cpp)
 
-target_link_libraries(huawei_api_test  libcurl ${EXTRA_LIBS})
+target_link_libraries(huawei_api_test ${CURL_LIB_NAME} ${EXTRA_LIBS})
 target_compile_features(huawei_api_test PRIVATE cxx_generalized_initializers)
