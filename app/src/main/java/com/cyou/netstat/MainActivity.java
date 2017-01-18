@@ -99,7 +99,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 			try
 			{
 				File path = getWindow().getContext().getExternalFilesDir("netstatlog");
-				//File path = getWindow().getContext().getFilesDir();
+
+				// if fail, try again
+				if (path == null)
+				{
+					LogUtil.LogToView("get external files failed, try again.");
+					path = getWindow().getContext().getFilesDir();
+				}
+
 				if( (path == null) || (!path.exists() && !path.mkdirs()) )
 				{
 					LogUtil.LogToView("error when make log path !", LogUtil.LogType.Critical);
