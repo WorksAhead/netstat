@@ -99,7 +99,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 			try
 			{
 				File path = getWindow().getContext().getExternalFilesDir("netstatlog");
-				if( !path.exists() && !path.mkdirs())
+				//File path = getWindow().getContext().getFilesDir();
+				if( (path == null) || (!path.exists() && !path.mkdirs()) )
 				{
 					LogUtil.LogToView("error when make log path !", LogUtil.LogType.Critical);
 				}
@@ -120,6 +121,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 			GlobalInitialize();
 
 			/// try get root permission
+			/*
 			if (upgradeRootPermission(getPackageCodePath()))
 			{
 				LogUtil.LogToView("get root permission success.", LogUtil.LogType.Info);
@@ -128,6 +130,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 			{
 				LogUtil.LogToView("get root permission fail.", LogUtil.LogType.Info);
 			}
+			*/
 		}
 		else
 		{

@@ -102,8 +102,8 @@ public class PStateListener extends PhoneStateListener
 				LogToFile(signalToLog);
 
 				String signalToDisplay = String.format(Locale.US,
-						"GSM signal strength: %d", signalStrength.getGsmSignalStrength());
-				//LogUtil.LogToView(signalToDisplay, LogUtil.LogType.Info, false);
+						"gsm signal strength: %d", signalStrength.getGsmSignalStrength());
+				LogUtil.LogToView(signalToDisplay, LogUtil.LogType.Info, false);
 			}
 			catch(Exception ex)
 			{

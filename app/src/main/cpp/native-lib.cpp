@@ -35,7 +35,7 @@ boost::lockfree::queue<char*, boost::lockfree::capacity<1024>> gLockfreeQueue;
 // callback from native code
 void NativeLogCallback(const char* message)
 {
-	char* copyMsg = (char*)malloc(strlen(message));
+	char* copyMsg = (char*)malloc(strlen(message)+1);
 	strcpy(copyMsg, message);
 	if (!gLockfreeQueue.push(copyMsg))
 	{
