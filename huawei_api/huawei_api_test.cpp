@@ -1,5 +1,6 @@
 #include <string>
 #include <iostream>
+
 #include <curl/curl.h>
 
 #include <boost/property_tree/ptree.hpp>
@@ -11,7 +12,7 @@ using boost::property_tree::write_json;
 int main(int argc, char* argv[])
 {
     CURLcode res = CURL_LAST;
-    static char *huaweiApiUrl = "http://baidu.com/QoSV1/DynamicQoS";
+    static char *huaweiApiUrl = "http://183.207.208.184/services/QoSV1/DynamicQoS";
 
     curl_global_init(CURL_GLOBAL_ALL);
 
@@ -26,11 +27,9 @@ int main(int argc, char* argv[])
 
         headers = curl_slist_append(headers, "Content-Type: application/json");
         headers = curl_slist_append(headers, "Accept: application/json");
-        headers = curl_slist_append(headers, "Authorization: WSSE realm=\"QoS\", profile=\"UsernameToken\"");
-        headers = curl_slist_append(headers, "X-WSSE: UsernameToken");
-        headers = curl_slist_append(headers, "Username=\"ODB\",PasswordDigest=\"Qd0QnQn0eaAHpOiuk/0QhV+Bzdc=\"");
-        headers = curl_slist_append(headers, "Nonce=\"eUZZZXpSczFycXJCNVhCWU1mS3ZScldOYg==\"");
-        headers = curl_slist_append(headers, "Timestamp=\"2013-09-05T02:12:21Z\"");
+        headers = curl_slist_append(headers, "Authorization: WSSE realm=\"ChangyouRealm\", profile=\"UsernameToken\"");
+        headers = curl_slist_append(headers, "X-WSSE: UsernameToken Username=\"ChangyouDevice\", PasswordDigest=\"Qd0QnQn0eaAHpOiuk/0QhV+Bzdc=\", Nonce=\"eUZZZXpSczFycXJCNVhCWU1mS3ZScldOYg==\", Timestamp=\"2013-09-05T02:12:21Z\"");
+        headers = curl_slist_append(headers, "Expect:");
 
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
@@ -49,13 +48,13 @@ int main(int argc, char* argv[])
 
         root.put("OTTchargingId", "xxxxxssssssssyyyyyyynnnnnn123");
         root.put("APN", "APNtest");
-        root.put("ServiceId", "BufferedStreamingVideo");
+        root.put("ServiceId", "open_qos_3");
 
         pt::ptree resFeatureProps;
 
         pt::ptree resFeature;
-        resFeature.put("Type", 1);
-        resFeature.put("Priority", 1);
+        resFeature.put("Type", 6);
+        resFeature.put("Priority", 15);
         
         pt::ptree flowProps;
         
