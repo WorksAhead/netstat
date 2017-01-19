@@ -12,7 +12,7 @@ if(UNIX)
     find_package(Boost
                  1.6.2
                  REQUIRED
-                 COMPONENTS property_tree program_options log filesystem thread system)
+                 COMPONENTS program_options log filesystem thread system)
     include_directories(${Boost_INCLUDE_DIRS})
 
     set(CMAKE_CXX_FLAGS -DBOOST_LOG_DYN_LINK)
