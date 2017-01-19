@@ -98,13 +98,13 @@ using boost::property_tree::write_json;
 
 using namespace std;
 
-string sha256(const string& str)
+string sha256(const string& str, unsigned char* hash)
 {
-    unsigned char hash[SHA256_DIGEST_LENGTH];
     SHA256_CTX sha256;
     SHA256_Init(&sha256);
     SHA256_Update(&sha256, str.c_str(), str.size());
     SHA256_Final(hash, &sha256);
+
     stringstream ss;
     for(int i = 0; i < SHA256_DIGEST_LENGTH; i++)
     {
@@ -113,7 +113,7 @@ string sha256(const string& str)
     return ss.str();
 }
 
-char *base64(const char *input, int length)
+char *base64(const unsigned char *input, int length)
 {
     BIO *bmem, *b64;
     BUF_MEM *bptr;
@@ -137,22 +137,24 @@ char *base64(const char *input, int length)
 int main(int argc, char* argv[])
 {
     std::string nonce = "eUZZZXpSczFycXJCNVhCWU1mS3ZScldOYg==";
-    std::string timestamp = "2013-09-05'T'02:12:21'Z'";
+    std::string timestamp = "2013-09-05T02:12:21Z";
     std::string pwd = "Changyou@123";
 
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+
     std::string clearPwd = nonce + timestamp + pwd;
-    std::string encryptedPwd = sha256(clearPwd);
+    std::string encryptedPwd = sha256(clearPwd, hash);
     std::cout << "sha256 pwd: " << encryptedPwd << ", length: " << encryptedPwd.length() << ", SHA256_DIGEST_LENGTH: " << SHA256_DIGEST_LENGTH << std::endl;
     // std::string result = base64(encryptedPwd.c_str(), encryptedPwd.length());
-    std::string result = base64_encode(encryptedPwd);
+    std::string result = base64(hash, SHA256_DIGEST_LENGTH);
 
     std::cout << "clear pwd: " << clearPwd << ", length: " << clearPwd.length() << ", encrypted pwd: " << result << ", length: " << result.length() << std::endl;
-    std::string decodstr = base64_decode(result);
-    std::cout << "decode: " << decodstr << std::endl;
 
-
-    return 0;
-
+    std::string wsse = "X-WSSE: UsernameToken Username=\"ChangyouDevice\", PasswordDigest=";
+    wsse += "\"";
+    wsse += result;
+    wsse += "\", Nonce=\"eUZZZXpSczFycXJCNVhCWU1mS3ZScldOYg==\", Timestamp=\"2013-09-05T02:12:21Z\"";
+    
     CURLcode res = CURL_LAST;
     static char *huaweiApiUrl = "http://183.207.208.184/services/QoSV1/DynamicQoS";
 
@@ -170,7 +172,8 @@ int main(int argc, char* argv[])
         headers = curl_slist_append(headers, "Content-Type: application/json");
         headers = curl_slist_append(headers, "Accept: application/json");
         headers = curl_slist_append(headers, "Authorization: WSSE realm=\"ChangyouRealm\", profile=\"UsernameToken\"");
-        headers = curl_slist_append(headers, "X-WSSE: UsernameToken Username=\"ChangyouDevice\", PasswordDigest=\"Qd0QnQn0eaAHpOiuk/0QhV+Bzdc=\", Nonce=\"eUZZZXpSczFycXJCNVhCWU1mS3ZScldOYg==\", Timestamp=\"2013-09-05T02:12:21Z\"");
+        // headers = curl_slist_append(headers, "X-WSSE: UsernameToken Username=\"ChangyouDevice\", PasswordDigest=\"Qd0QnQn0eaAHpOiuk/0QhV+Bzdc=\", Nonce=\"eUZZZXpSczFycXJCNVhCWU1mS3ZScldOYg==\", Timestamp=\"2013-09-05T02:12:21Z\"");
+        headers = curl_slist_append(headers, wsse.c_str());
         headers = curl_slist_append(headers, "Expect:");
 
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
