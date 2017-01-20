@@ -46,7 +46,13 @@ include_directories("${CURL_PATH_PREFIX}${CURL_INCLUDE_DIRS}/../build/include/cu
 link_directories("${CURL_PATH_PREFIX}${CURL_LIBRARIES}")
 add_definitions(-DCURL_STATICLIB)
 
-add_executable(huawei_api_test huawei_api_test.cpp)
+add_executable(huawei_api_test 
+               sha2.c 
+               sha2.h
+               encode.c
+               decode.c
+               b64.h 
+               huawei_api_test.cpp)
 
 target_link_libraries(huawei_api_test ${CURL_LIB_NAME} ${EXTRA_LIBS})
 target_compile_features(huawei_api_test PRIVATE cxx_generalized_initializers)
