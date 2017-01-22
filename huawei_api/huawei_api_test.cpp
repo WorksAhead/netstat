@@ -14,9 +14,11 @@
 
 #include "sha2.h"
 #include "b64.h"
+#include "json.h"
 
 namespace pt = boost::property_tree;
 using boost::property_tree::write_json;
+using json = nlohmann::json;
 
 using namespace std;
 
@@ -72,9 +74,90 @@ int main(int argc, char* argv[])
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
         // Create a node
+        json boddy = {
+            //{"Partner_ID", "000001" },
+            //{ "User_ID", "000001123456789" },
+            { "UserIdentifier",
+                { "PublicIP", "111.206.12.231" },
+                { "IP", "10.12.26.27" },
+                { "IMSI", "460030123456789" },
+                { "MSISDN", "+8613810005678" },
+            },
+            { "OTTchargingId", "xxxxxssssssssyyyyyyynnnnnn123" },
+            { "APN", "APNtest" },
+            { "ServiceId", "open_qos_3" },
+            { "ResourceFeatureProperties",{
+                { "Type", 6 },
+                { "Priority", 15 },
+                { "FlowProperties",{
+                    { "Direction", 2 },
+                    { "SourceIpAddress", "10.12.26.27" },
+                    { "DestinationIpAddress", "111.206.12.231" },
+                    { "SourcePort", 1000 },
+                    { "DestinationPort", 2000 },
+                    { "Protocol", "UDP" },
+                    { "MaximumUpStreamSpeedRate", 1000000 },
+                    { "MaximumDownStreamSpeedRate", 4000000 },
+                }
+                },
+                { "MaximumUpStreamSpeedRate", 200000 },
+                { "MaximumDownStreamSpeedRate", 400000 },
+            }
+            },
+            { "Duration", 600 },
+            { "CallBackURL", "http://www.changyou.com" }
+        };
+        json body;
+        //body["Partner_ID"] = "000001";
+        //body["User_ID"] = "000001123456789";
+        body["UserIdentifier"] = {
+            { "PublicIP", "111.206.12.231" },
+            { "IP", "10.12.26.27" },
+            { "IMSI", "460030123456789" },
+            //{ "MSISDN", "08613810005678" },
+        };
+        body["OTTchargingId"] = "xxxxxssssssssyyyyyyynnnnnn123";
+        body["APN"] = "APNtest";
+        body["ServiceId"] = "open_qos_3";
+        json flowP;
+        flowP["FlowProperties"] = { {
+            { "Direction", 2 },
+            { "SourceIpAddress", "10.12.26.27" },
+            { "DestinationIpAddress", "111.206.12.231" },
+            { "SourcePort", 1000 },
+            { "DestinationPort", 2000 },
+            { "Protocol", "UDP" },
+            { "MaximumUpStreamSpeedRate", 1000000 },
+            { "MaximumDownStreamSpeedRate", 4000000 },
+        }
+        };
+        body["ResourceFeatureProperties"] = {{
+            { "Type", 6 },
+            { "Priority", 15 },
+            //flowP,
+            { "MaximumUpStreamSpeedRate", 200000 },
+            { "MaximumDownStreamSpeedRate", 400000 },
+        }
+    };
+        body["ResourceFeatureProperties"][0]["FlowProperties"] = { {
+            { "Direction", 2 },
+            { "SourceIpAddress", "10.12.26.27" },
+            { "DestinationIpAddress", "111.206.12.231" },
+            { "SourcePort", 1000 },
+            { "DestinationPort", 2000 },
+            { "Protocol", "UDP" },
+            { "MaximumUpStreamSpeedRate", 1000000 },
+            { "MaximumDownStreamSpeedRate", 4000000 },
+            }
+        };
+        body["Duration"] = 600;
+        body["CallBackURL"] = "http://www.changyou.com";
+
+        std::cout << body << std::endl;
+
+
         pt::ptree root;
         root.put("Partner_ID", "000001");
-        root.put("User_ID", "000001123456789");
         root.put("User_ID", "000001123456789");
 
         pt::ptree userId;
@@ -91,7 +174,8 @@ int main(int argc, char* argv[])
         pt::ptree resFeatureProps;
 
         pt::ptree resFeature;
-        resFeature.put("Type", 6);
+        int t = 6;
+        resFeature.put("Type", t);
         resFeature.put("Priority", 15);
         
         pt::ptree flowProps;
@@ -128,8 +212,9 @@ int main(int argc, char* argv[])
         std::cout << buf.str() << std::endl;
         std::string tt = buf.str();
 
-        const char* ttt = tt.c_str();
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, tt.c_str());
+        std::string ok = body.dump();
+        const char* ttt = body.dump().c_str();//tt.c_str();
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, ok.c_str());
 
         // GO!
         res = curl_easy_perform(curl);
