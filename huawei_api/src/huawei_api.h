@@ -2,6 +2,7 @@
 #define __NETSTAT_HUAWEI_API__
 
 #include <string>
+#include <curl/curl.h>
 
 namespace huawei
 {
@@ -16,6 +17,9 @@ namespace huawei
     private:
         // SHA-256 encrypt.
         void Encrypt(const unsigned char* message, unsigned int len, unsigned char* result);
+
+        // Construct curl http header, must be called after init curl.
+        struct curl_slist* ConstructHeaders();
 
     private:
         std::string m_Realm;

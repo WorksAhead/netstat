@@ -1,14 +1,13 @@
 #include "huawei_api.h"
 
-#include <curl/curl.h>
-#include "json.hpp"
-#include "sha2.h"
-#include "b64.h"
-
 #include <boost/format.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/local_time/local_time.hpp>
+
+#include "json.hpp"
+#include "sha2.h"
+#include "b64.h"
 
 // interface
 typedef void(*huawei_api_callback_t)(int result, const char* msg);
@@ -22,6 +21,7 @@ void huawei_api_client_qos_resource_request(void* instance);
 // end
 
 using namespace huawei;
+
 using json = nlohmann::json;
 
 using namespace boost::gregorian;
@@ -49,8 +49,8 @@ HuaweiAPI::Encrypt(const unsigned char* message, unsigned int len, unsigned char
     sha256_final(&sha256, result);
 }
 
-void
-HuaweiAPI::ApplyQoSResourceRequest(const char* huaweiApiUrl)
+struct curl_slist*
+HuaweiAPI::ConstructHeaders()
 {
     // Get timestamp
     time_zone_ptr timeZone{ new posix_time_zone{ "CET+8" } };
@@ -64,7 +64,7 @@ HuaweiAPI::ApplyQoSResourceRequest(const char* huaweiApiUrl)
     int minutes = localTime.time_of_day().minutes();
     int seconds = localTime.time_of_day().seconds();
 
-    std::string timestamp = boost::str(boost::format("%1$04d-%2$02d-%3$02dT%4$02d:%5$02d:%6$02dZ") % year % month % day % hours % minutes % seconds);// "2013-09-05T02:12:21Z";
+    std::string timestamp = boost::str(boost::format("%1$04d-%2$02d-%3$02dT%4$02d:%5$02d:%6$02dZ") % year % month % day % hours % minutes % seconds);
 
     // Get sha-256 value.
     unsigned char sha256Result[SHA256_DIGEST_SIZE];
@@ -80,27 +80,33 @@ HuaweiAPI::ApplyQoSResourceRequest(const char* huaweiApiUrl)
     // Construct author.
     std::string author = boost::str(boost::format("Authorization: WSSE realm=\"%1%\", profile=\"UsernameToken\"") % m_Realm);
 
-    // Ready to send request by curl.
-    CURLcode res = CURL_LAST;
+    struct curl_slist *headers = NULL;
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+    headers = curl_slist_append(headers, "Accept: application/json");
+    headers = curl_slist_append(headers, author.c_str());
+    headers = curl_slist_append(headers, wsse.c_str());
+    // Set 'Expect' header field to null.
+    headers = curl_slist_append(headers, "Expect:");
 
+    return headers;
+}
+
+void
+HuaweiAPI::ApplyQoSResourceRequest(const char* huaweiApiUrl)
+{
+    // Init curl
     curl_global_init(CURL_GLOBAL_ALL);
 
     CURL* curl = curl_easy_init();
     if (curl)
     {
+        CURLcode res = CURL_LAST;
+
         // Setting URL.
         curl_easy_setopt(curl, CURLOPT_URL, huaweiApiUrl);
 
         // Setting headers.
-        struct curl_slist *headers = NULL;
-
-        headers = curl_slist_append(headers, "Content-Type: application/json");
-        headers = curl_slist_append(headers, "Accept: application/json");
-        headers = curl_slist_append(headers, author.c_str());
-        headers = curl_slist_append(headers, wsse.c_str());
-        // Set 'Expect' header field to null.
-        headers = curl_slist_append(headers, "Expect:");
-
+        struct curl_slist *headers = ConstructHeaders();
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
         // Create a node
@@ -186,7 +192,6 @@ HuaweiAPI::ApplyQoSResourceRequest(const char* huaweiApiUrl)
         std::cout << body << std::endl;
 
         std::string ok = body.dump();
-        const char* ttt = body.dump().c_str();//tt.c_str();
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, ok.c_str());
 
         // GO!

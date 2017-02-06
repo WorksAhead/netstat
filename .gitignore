@@ -9,7 +9,7 @@
 .externalNativeBuild
 /ttcp/build
 /huawei_api/build
-/huawei_api/curl/build
+/huawei_api/dependencies/*/build
 /latency_test/intermediate
 /latency_test/build/*.VC.db
 /latency_test/bin
