@@ -17,19 +17,20 @@ namespace huawei
         HuaweiAPI(const std::string& realm, const std::string& username, const std::string& password, const std::string& nonce);
         ~HuaweiAPI();
 
+        // Register callback functions.
         boost::signals2::connection RegisterCallback(const SignalType::slot_type& subscriber);
 
-        void ApplyQoSResourceRequest(const char* huaweiApiUrl);
+        // Do QoSResourceRequest.
+        void AsyncQoSResourceRequest(const char* huaweiApiUrl);
+        void QoSResourceRequest(const char* huaweiApiUrl);
 
     private:
         // SHA-256 encrypt.
         void Encrypt(const unsigned char* message, unsigned int len, unsigned char* result);
         // Construct curl http header, must be called after init curl.
         struct curl_slist* ConstructHeaders();
-        //
+        // Construct QoSResourceRequest api body.
         std::string ConstructQoSResourceRequestBody();
-
-        void ApplyQoSResourceRequestInternal(const char* huaweiApiUrl);
 
     private:
         std::string m_Realm;

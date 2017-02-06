@@ -9,17 +9,6 @@
 #include "sha2.h"
 #include "b64.h"
 
-// interface
-typedef void(*huawei_api_callback_t)(int result, const char* msg);
-
-void* huawei_api_client_create();
-void huawei_api_client_destory(void* instance);
-
-void huawei_api_client_set_callback(void* instance, huawei_api_callback_t callback);
-
-void huawei_api_client_qos_resource_request(void* instance);
-// end
-
 using namespace huawei;
 
 using json = nlohmann::json;
@@ -27,6 +16,18 @@ using json = nlohmann::json;
 using namespace boost::gregorian;
 using namespace boost::posix_time;
 using namespace boost::local_time;
+
+// interface
+typedef void(*huawei_api_callback_t)(int result, const char* msg);
+
+void* huawei_api_client_create(const char* realm, const char* username, const char* password, const char* nonce);
+void huawei_api_client_destory(void* instance);
+
+void huawei_api_client_set_callback(void* instance, huawei_api_callback_t callback);
+
+void huawei_api_client_async_qos_resource_request(void* instance, const char* url);
+void huawei_api_client_qos_resource_request(void* instance, const char* url);
+// end
 
 HuaweiAPI::HuaweiAPI(const std::string& realm, const std::string& username, const std::string& password, const std::string& nonce)
     : m_Realm{realm}
@@ -150,17 +151,17 @@ HuaweiAPI::ConstructQoSResourceRequestBody()
 }
 
 void
-HuaweiAPI::ApplyQoSResourceRequest(const char* huaweiApiUrl)
+HuaweiAPI::AsyncQoSResourceRequest(const char* huaweiApiUrl)
 {
     if (m_Thread != nullptr)
     {
         m_Thread->join();
     }
-    m_Thread.reset(new boost::thread(&HuaweiAPI::ApplyQoSResourceRequestInternal, this, huaweiApiUrl));
+    m_Thread.reset(new boost::thread(&HuaweiAPI::QoSResourceRequest, this, huaweiApiUrl));
 }
 
 void
-HuaweiAPI::ApplyQoSResourceRequestInternal(const char* huaweiApiUrl)
+HuaweiAPI::QoSResourceRequest(const char* huaweiApiUrl)
 {
     // Init curl
     curl_global_init(CURL_GLOBAL_ALL);
@@ -188,4 +189,43 @@ HuaweiAPI::ApplyQoSResourceRequestInternal(const char* huaweiApiUrl)
     }
 
     curl_global_cleanup();
+}
+
+// --------------------------------------------------------------------------
+
+void* huawei_api_client_create(const char* realm, const char* username, const char* password, const char* nonce)
+{
+    return new HuaweiAPI(realm, username, password, nonce);
+}
+
+void huawei_api_client_destory(void* instance)
+{
+    if (instance)
+    {
+        delete ((HuaweiAPI*)instance);
+    }
+}
+
+void huawei_api_client_set_callback(void* instance, huawei_api_callback_t callback)
+{
+    if (instance)
+    {
+        ((HuaweiAPI*)instance)->RegisterCallback(callback);
+    }
+}
+
+void huawei_api_client_async_qos_resource_request(void* instance, const char* url)
+{
+    if (instance)
+    {
+        ((HuaweiAPI*)instance)->AsyncQoSResourceRequest(url);
+    }
+}
+
+void huawei_api_client_qos_resource_request(void* instance, const char* url)
+{
+    if (instance)
+    {
+        ((HuaweiAPI*)instance)->QoSResourceRequest(url);
+    }
 }
