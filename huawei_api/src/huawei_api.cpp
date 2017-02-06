@@ -40,6 +40,12 @@ HuaweiAPI::~HuaweiAPI()
 {
 }
 
+boost::signals2::connection
+HuaweiAPI::RegisterCallback(const SignalType::slot_type& subscriber)
+{
+    return m_Signal.connect(subscriber);
+}
+
 void
 HuaweiAPI::Encrypt(const unsigned char* message, unsigned int len, unsigned char* result)
 {
@@ -91,8 +97,70 @@ HuaweiAPI::ConstructHeaders()
     return headers;
 }
 
+std::string
+HuaweiAPI::ConstructQoSResourceRequestBody()
+{
+    json body;
+
+    json::object_t userId =
+    {
+        { "PublicIP", "111.206.12.231" },
+        { "IP", "10.12.26.27" },
+        { "IMSI", "460030123456789" },
+    };
+
+    body["UserIdentifier"] = userId;
+
+    body["OTTchargingId"] = "xxxxxssssssssyyyyyyynnnnnn123";
+    body["APN"] = "APNtest";
+    body["ServiceId"] = "open_qos_3";
+
+    json::array_t resFeatureProps;
+
+    json::array_t flowProps;
+    json::object_t flowProperty =
+    {
+        { "Direction", 2 },
+        { "SourceIpAddress", "10.12.26.27" },
+        { "DestinationIpAddress", "111.206.12.231" },
+        { "SourcePort", 1000 },
+        { "DestinationPort", 2000 },
+        { "Protocol", "UDP" },
+        { "MaximumUpStreamSpeedRate", 1000000 },
+        { "MaximumDownStreamSpeedRate", 4000000 }
+    };
+    flowProps.push_back(flowProperty);
+
+    json::object_t resFeatureProperty =
+    {
+        { "Type", 6 },
+        { "Priority", 15 },
+        { "FlowProperties", flowProps },
+        { "MaximumUpStreamSpeedRate", 200000 },
+        { "MaximumDownStreamSpeedRate", 400000 },
+    };
+    resFeatureProps.push_back(resFeatureProperty);
+
+    body["ResourceFeatureProperties"] = resFeatureProps;
+
+    body["Duration"] = 600;
+    body["CallBackURL"] = "http://www.changyou.com";
+
+    return body.dump();
+}
+
 void
 HuaweiAPI::ApplyQoSResourceRequest(const char* huaweiApiUrl)
+{
+    if (m_Thread != nullptr)
+    {
+        m_Thread->join();
+    }
+    m_Thread.reset(new boost::thread(&HuaweiAPI::ApplyQoSResourceRequestInternal, this, huaweiApiUrl));
+}
+
+void
+HuaweiAPI::ApplyQoSResourceRequestInternal(const char* huaweiApiUrl)
 {
     // Init curl
     curl_global_init(CURL_GLOBAL_ALL);
@@ -100,8 +168,6 @@ HuaweiAPI::ApplyQoSResourceRequest(const char* huaweiApiUrl)
     CURL* curl = curl_easy_init();
     if (curl)
     {
-        CURLcode res = CURL_LAST;
-
         // Setting URL.
         curl_easy_setopt(curl, CURLOPT_URL, huaweiApiUrl);
 
@@ -109,97 +175,12 @@ HuaweiAPI::ApplyQoSResourceRequest(const char* huaweiApiUrl)
         struct curl_slist *headers = ConstructHeaders();
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-        // Create a node
-        json boddy = {
-            //{"Partner_ID", "000001" },
-            //{ "User_ID", "000001123456789" },
-            { "UserIdentifier",
-            { "PublicIP", "111.206.12.231" },
-            { "IP", "10.12.26.27" },
-            { "IMSI", "460030123456789" },
-            { "MSISDN", "+8613810005678" },
-            },
-            { "OTTchargingId", "xxxxxssssssssyyyyyyynnnnnn123" },
-            { "APN", "APNtest" },
-            { "ServiceId", "open_qos_3" },
-            { "ResourceFeatureProperties",{
-                { "Type", 6 },
-                { "Priority", 15 },
-                { "FlowProperties",{
-                    { "Direction", 2 },
-                    { "SourceIpAddress", "10.12.26.27" },
-                    { "DestinationIpAddress", "111.206.12.231" },
-                    { "SourcePort", 1000 },
-                    { "DestinationPort", 2000 },
-                    { "Protocol", "UDP" },
-                    { "MaximumUpStreamSpeedRate", 1000000 },
-                    { "MaximumDownStreamSpeedRate", 4000000 },
-                }
-                },
-                { "MaximumUpStreamSpeedRate", 200000 },
-                { "MaximumDownStreamSpeedRate", 400000 },
-            }
-            },
-            { "Duration", 600 },
-            { "CallBackURL", "http://www.changyou.com" }
-        };
-        json body;
-        //body["Partner_ID"] = "000001";
-        //body["User_ID"] = "000001123456789";
-        body["UserIdentifier"] = {
-            { "PublicIP", "111.206.12.231" },
-            { "IP", "10.12.26.27" },
-            { "IMSI", "460030123456789" },
-            //{ "MSISDN", "08613810005678" },
-        };
-        body["OTTchargingId"] = "xxxxxssssssssyyyyyyynnnnnn123";
-        body["APN"] = "APNtest";
-        body["ServiceId"] = "open_qos_3";
-        json flowP;
-        flowP["FlowProperties"] = { {
-            { "Direction", 2 },
-            { "SourceIpAddress", "10.12.26.27" },
-            { "DestinationIpAddress", "111.206.12.231" },
-            { "SourcePort", 1000 },
-            { "DestinationPort", 2000 },
-            { "Protocol", "UDP" },
-            { "MaximumUpStreamSpeedRate", 1000000 },
-            { "MaximumDownStreamSpeedRate", 4000000 },
-            }
-        };
-        body["ResourceFeatureProperties"] = { {
-            { "Type", 6 },
-            { "Priority", 15 },
-            //flowP,
-            { "MaximumUpStreamSpeedRate", 200000 },
-            { "MaximumDownStreamSpeedRate", 400000 },
-            }
-        };
-        body["ResourceFeatureProperties"][0]["FlowProperties"] = { {
-            { "Direction", 2 },
-            { "SourceIpAddress", "10.12.26.27" },
-            { "DestinationIpAddress", "111.206.12.231" },
-            { "SourcePort", 1000 },
-            { "DestinationPort", 2000 },
-            { "Protocol", "UDP" },
-            { "MaximumUpStreamSpeedRate", 1000000 },
-            { "MaximumDownStreamSpeedRate", 4000000 },
-            }
-        };
-        body["Duration"] = 600;
-        body["CallBackURL"] = "http://www.changyou.com";
-
-        std::cout << body << std::endl;
-
-        std::string ok = body.dump();
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, ok.c_str());
+        std::string body = ConstructQoSResourceRequestBody();
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
 
         // GO!
-        res = curl_easy_perform(curl);
-        if (res != CURLE_OK)
-        {
-            fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-        }
+        CURLcode res = curl_easy_perform(curl);
+        m_Signal(res, curl_easy_strerror(res));
 
         // Release handles.
         curl_slist_free_all(headers);
