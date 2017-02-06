@@ -9,13 +9,6 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 if(UNIX)
-    find_package(Boost
-                 1.6.2
-                 REQUIRED
-                 COMPONENTS program_options log filesystem thread system)
-    include_directories(${Boost_INCLUDE_DIRS})
-
-    set(CMAKE_CXX_FLAGS -DBOOST_LOG_DYN_LINK)
     set(EXTRA_LIBS pthread ssl z crypto dl)
     set(CURL_PATH_PREFIX ".")
     set(CURL_LIB_NAME "curl")
@@ -46,13 +39,13 @@ include_directories("${CURL_PATH_PREFIX}${CURL_INCLUDE_DIRS}/../build/include/cu
 link_directories("${CURL_PATH_PREFIX}${CURL_LIBRARIES}")
 add_definitions(-DCURL_STATICLIB)
 
-add_executable(huawei_api_test 
-               sha2.c 
-               sha2.h
-               encode.c
-               decode.c
-               b64.h 
-               huawei_api_test.cpp)
+add_subdirectory(./src)
+include_directories(./src)
 
-target_link_libraries(huawei_api_test ${CURL_LIB_NAME} ${EXTRA_LIBS})
+link_directories("${HMAC_LIBRARY}")
+link_directories("${B64C_LIBRARY}")
+
+add_executable(huawei_api_test huawei_api_test.cpp)
+
+target_link_libraries(huawei_api_test huawei_api ${CURL_LIB_NAME} ${EXTRA_LIBS} hmac b64c)
 target_compile_features(huawei_api_test PRIVATE cxx_generalized_initializers)
