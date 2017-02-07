@@ -21,8 +21,12 @@ namespace huawei
         boost::signals2::connection RegisterCallback(const SignalType::slot_type& subscriber);
 
         // Do QoSResourceRequest.
-        void AsyncQoSResourceRequest(const char* huaweiApiUrl);
-        void QoSResourceRequest(const char* huaweiApiUrl);
+        void AsyncApplyQoSResourceRequest(const char* huaweiApiUrl);
+        void ApplyQoSResourceRequest(const char* huaweiApiUrl);
+
+        // Stop QoSResourceRequest.
+        void AsyncRemoveQoSResourceRequest(const char* huaweiApiUrl);
+        void RemoveQoSResourceRequest(const char* huaweiApiUrl);
 
     private:
         // SHA-256 encrypt.
