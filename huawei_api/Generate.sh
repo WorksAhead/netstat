@@ -17,20 +17,20 @@ else
     BUILD_TYPE="Release"
 fi
 
-PUSHD $DEP_DIR
+pushd $DEP_DIR
 
 # clone curl
 if [ ! -d "$CURL_DIR" ]; then
     git clone "$CURL_GIT"
 
-    PUSHD $CURL_DIR
+    pushd $CURL_DIR
     
     mkdir -p build
     cd build
-    cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCURL_STATICLIB=1 -DBUILD_CURL_EXE=0 -DBUILD_TESTING=0 ..
+    cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_USE_OPENSSL=OFF -DCURL_STATICLIB=1 -DBUILD_CURL_EXE=0 -DBUILD_TESTING=0 ..
     make
 
-    POPD
+    popd
 fi
 
 # clone json
@@ -39,7 +39,7 @@ if [ ! -d "$JSON_DIR" ]; then
 fi
 
 # Build hmac
-PUSHD $HMAC_DIR
+pushd $HMAC_DIR
 
 if [ ! -d "build" ]; then
     mkdir -p build
@@ -48,10 +48,10 @@ if [ ! -d "build" ]; then
     make
 fi
 
-POPD
+popd
 
 # Build b64.c
-PUSHD $B64C_DIR
+pushd $B64C_DIR
 
 if [ ! -d "build" ]; then
     mkdir -p build
@@ -60,9 +60,9 @@ if [ ! -d "build" ]; then
     make
 fi
 
-POPD
+popd
 
-POPD
+popd
 
 rm -rf ./build
 mkdir -p ./build

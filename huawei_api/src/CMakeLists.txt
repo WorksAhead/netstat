@@ -14,8 +14,6 @@ if(UNIX)
                  REQUIRED
                  COMPONENTS thread system)
     include_directories(${Boost_INCLUDE_DIRS})
-
-    set(CURL_PATH_PREFIX "../")
 endif()
 
 if(WIN32)
@@ -35,8 +33,8 @@ find_package(CURL
              REQUIRED
              COMPONENTS
              curl)
-include_directories("${CURL_PATH_PREFIX}${CURL_INCLUDE_DIRS}")
-include_directories("${CURL_PATH_PREFIX}${CURL_INCLUDE_DIRS}/../build/include/curl")
+include_directories(${CURL_INCLUDE_DIRS})
+include_directories("${CURL_INCLUDE_DIRS}/../build/include/curl")
 add_definitions(-DCURL_STATICLIB)
 
 #nlohmann/json
