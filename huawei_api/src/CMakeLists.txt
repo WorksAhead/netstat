@@ -9,17 +9,23 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 if(UNIX)
+    find_package(Boost
+                 1.6.2
+                 REQUIRED
+                 COMPONENTS thread system)
+    include_directories(${Boost_INCLUDE_DIRS})
+
     set(CURL_PATH_PREFIX "../")
 endif()
 
 if(WIN32)
-	# Disable the ompile tips: Please define _WIN32_WINNT or _WIN32_WINDOWS appropriately.
-	add_definitions(-DWINVER=0x0A00 -D_WIN32_WINNT=0x0A00)
+    # Disable the ompile tips: Please define _WIN32_WINNT or _WIN32_WINDOWS appropriately.
+    add_definitions(-DWINVER=0x0A00 -D_WIN32_WINNT=0x0A00)
 
     # Disable warning C4003 for nlohmann/json: not enough actual parameters for macro 'max'.
     add_definitions(-DNOMINMAX)
 
-	# Libs thast were depended by libcurl.
+    # Libs thast were depended by libcurl.
     set(EXTRA_LIBS ws2_32 wldap32 crypt32)
 endif()
 
