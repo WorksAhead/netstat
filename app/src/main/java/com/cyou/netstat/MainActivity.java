@@ -37,6 +37,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 	private static boolean InitializeGuard = false;
 	private static long BaseClockTime = 0;
 
+	private static boolean CurrentSpeedupState = false;
+
 	@Override
 	public void onChronometerTick(Chronometer var1)
 	{
@@ -183,15 +185,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		{
 			if (v == SpeedSwitch)
 			{
-				if (bChecked)
+				if (bChecked && !CurrentSpeedupState)
 				{
 					LogUtil.LogToView("start speedup...");
 					StartSpeedup();
+					CurrentSpeedupState = true;
 				}
 				else
 				{
 					LogUtil.LogToView("stop speedup...");
 					StopSpeedup();
+					CurrentSpeedupState = false;
 				}
 			}
 		}
