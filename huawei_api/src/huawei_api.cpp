@@ -33,6 +33,22 @@ void huawei_api_async_remove_qos_resource_request(void* instance, const char* ur
 void huawei_api_remove_qos_resource_request(void* instance, const char* url);
 // end
 
+// libcurl CURLOPT_WRITEFUNCTION callback.
+static size_t RequestCallback(char *ptr, size_t size, size_t nmemb, void *userdata)
+{
+    json response = json::parse(ptr);
+
+    int resultCode = response.value("ResultCode", 0);
+    std::string resultMsg = response.value("ResultMessage", "Success");
+
+    HuaweiAPI* instance = (HuaweiAPI*)userdata;
+    instance->signal_(resultCode, resultMsg.c_str());
+
+    size_t realsize = size * nmemb;
+
+    return realsize;
+}
+
 HuaweiAPI::HuaweiAPI(const std::string& realm, const std::string& username, const std::string& password, const std::string& nonce)
     : m_Realm{realm}
     , m_Username{username}
@@ -48,7 +64,7 @@ HuaweiAPI::~HuaweiAPI()
 boost::signals2::connection
 HuaweiAPI::RegisterCallback(const SignalType::slot_type& subscriber)
 {
-    return m_Signal.connect(subscriber);
+    return signal_.connect(subscriber);
 }
 
 void
@@ -170,26 +186,39 @@ HuaweiAPI::ApplyQoSResourceRequest(const char* huaweiApiUrl)
     // Init curl
     curl_global_init(CURL_GLOBAL_ALL);
 
-    CURL* curl = curl_easy_init();
-    if (curl)
+    CURL* curl_handle = curl_easy_init();
+    if (curl_handle)
     {
-        // Setting URL.
-        curl_easy_setopt(curl, CURLOPT_URL, huaweiApiUrl);
+        // Set URL.
+        curl_easy_setopt(curl_handle, CURLOPT_URL, huaweiApiUrl);
 
-        // Setting headers.
+        // Set headers.
         struct curl_slist *headers = ConstructHeaders();
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, headers);
 
+        // Set body.
         std::string body = ConstructQoSResourceRequestBody();
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
+        curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, body.c_str());
+
+        // Set callback.
+        curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, RequestCallback);
+        // Set callback user data.
+        curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void*)this);
+
+        // Set useragent.
+        curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
 
         // GO!
-        CURLcode res = curl_easy_perform(curl);
-        m_Signal(res, curl_easy_strerror(res));
+        CURLcode res = curl_easy_perform(curl_handle);
+        /* check for errors */
+        if (res != CURLE_OK)
+        {
+            signal_(res, curl_easy_strerror(res));
+        }
 
         // Release handles.
         curl_slist_free_all(headers);
-        curl_easy_cleanup(curl);
+        curl_easy_cleanup(curl_handle);
     }
 
     curl_global_cleanup();

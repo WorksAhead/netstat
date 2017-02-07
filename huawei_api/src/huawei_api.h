@@ -28,6 +28,9 @@ namespace huawei
         void AsyncRemoveQoSResourceRequest(const char* huaweiApiUrl);
         void RemoveQoSResourceRequest(const char* huaweiApiUrl);
 
+        // Callback signal object.
+        SignalType signal_;
+
     private:
         // SHA-256 encrypt.
         void Encrypt(const unsigned char* message, unsigned int len, unsigned char* result);
@@ -41,8 +44,6 @@ namespace huawei
         std::string m_Username;
         std::string m_Password;
         std::string m_Nonce;
-
-        SignalType m_Signal;
 
         boost::shared_ptr<boost::thread> m_Thread;
     };
