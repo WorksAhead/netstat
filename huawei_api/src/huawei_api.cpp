@@ -26,8 +26,8 @@ void huawei_api_destory(void* instance);
 
 void huawei_api_set_callback(void* instance, huawei_api_callback_t callback);
 
-void huawei_api_async_apply_qos_resource_request(void* instance);
-void huawei_api_apply_qos_resource_request(void* instance);
+void huawei_api_async_apply_qos_resource_request(void* instance, const char* public_ip, const char* private_ip);
+void huawei_api_apply_qos_resource_request(void* instance, const char* public_ip, const char* private_ip);
 
 void huawei_api_async_remove_qos_resource_request(void* instance);
 void huawei_api_remove_qos_resource_request(void* instance);
@@ -140,14 +140,14 @@ HuaweiAPI::ConstructApplyQoSResourceRequestHeaders()
 }
 
 std::string
-HuaweiAPI::ConstructApplyQoSResourceRequestBody()
+HuaweiAPI::ConstructApplyQoSResourceRequestBody(const std::string& public_ip, const std::string& private_ip)
 {
     json body;
 
     json::object_t userId =
     {
-        { "PublicIP", "111.206.12.231" },
-        { "IP", "10.12.26.27" },
+        { "PublicIP", public_ip },
+        { "IP", private_ip },
         { "IMSI", "460030123456789" },
     };
 
@@ -192,17 +192,17 @@ HuaweiAPI::ConstructApplyQoSResourceRequestBody()
 }
 
 void
-HuaweiAPI::AsyncApplyQoSResourceRequest()
+HuaweiAPI::AsyncApplyQoSResourceRequest(const std::string& public_ip, const std::string& private_ip)
 {
     if (m_Thread != nullptr)
     {
         m_Thread->join();
     }
-    m_Thread.reset(new boost::thread(&HuaweiAPI::ApplyQoSResourceRequest, this));
+    m_Thread.reset(new boost::thread(&HuaweiAPI::ApplyQoSResourceRequest, this, public_ip, private_ip));
 }
 
 void
-HuaweiAPI::ApplyQoSResourceRequest()
+HuaweiAPI::ApplyQoSResourceRequest(const std::string& public_ip, const std::string& private_ip)
 {
     CURL* curl_handle = curl_easy_init();
     if (curl_handle)
@@ -215,7 +215,7 @@ HuaweiAPI::ApplyQoSResourceRequest()
         curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, headers);
 
         // Set body.
-        std::string body = ConstructApplyQoSResourceRequestBody();
+        std::string body = ConstructApplyQoSResourceRequestBody(public_ip, private_ip);
         curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, body.c_str());
 
         // Set callback.
@@ -341,19 +341,19 @@ void huawei_api_set_callback(void* instance, huawei_api_callback_t callback)
     }
 }
 
-void huawei_api_async_apply_qos_resource_request(void* instance)
+void huawei_api_async_apply_qos_resource_request(void* instance, const char* public_ip, const char* private_ip)
 {
     if (instance)
     {
-        ((HuaweiAPI*)instance)->AsyncApplyQoSResourceRequest();
+        ((HuaweiAPI*)instance)->AsyncApplyQoSResourceRequest(public_ip, private_ip);
     }
 }
 
-void huawei_api_apply_qos_resource_request(void* instance)
+void huawei_api_apply_qos_resource_request(void* instance, const char* public_ip, const char* private_ip)
 {
     if (instance)
     {
-        ((HuaweiAPI*)instance)->ApplyQoSResourceRequest();
+        ((HuaweiAPI*)instance)->ApplyQoSResourceRequest(public_ip, private_ip);
     }
 }
 

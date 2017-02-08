@@ -23,8 +23,8 @@ namespace huawei
         boost::signals2::connection RegisterCallback(const SignalType::slot_type& subscriber);
 
         // Apply QoSResourceRequest.
-        void AsyncApplyQoSResourceRequest();
-        void ApplyQoSResourceRequest();
+        void AsyncApplyQoSResourceRequest(const std::string& public_ip, const std::string& private_ip);
+        void ApplyQoSResourceRequest(const std::string& public_ip, const std::string& private_ip);
 
         // Stop QoSResourceRequest.
         void AsyncRemoveQoSResourceRequest();
@@ -46,7 +46,7 @@ namespace huawei
         // Construct ApplyQoSResourceRequest header, must be called after init curl.
         struct curl_slist* ConstructApplyQoSResourceRequestHeaders();
         // Construct ApplyQoSResourceRequest api body.
-        std::string ConstructApplyQoSResourceRequestBody();
+        std::string ConstructApplyQoSResourceRequestBody(const std::string& public_ip, const std::string& private_ip);
 
         // Construct RemoveQoSResourceRequest header.
         struct curl_slist* ConstructRemoveQoSResourceRequestHeaders();
