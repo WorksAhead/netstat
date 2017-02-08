@@ -13,8 +13,8 @@ void huawei_api_destory(void* instance);
 
 void huawei_api_set_callback(void* instance, huawei_api_callback_t callback);
 
-void huawei_api_async_apply_qos_resource_request(void* instance, const char* public_ip, const char* private_ip);
-void huawei_api_apply_qos_resource_request(void* instance, const char* public_ip, const char* private_ip);
+void huawei_api_async_apply_qos_resource_request(void* instance);
+void huawei_api_apply_qos_resource_request(void* instance);
 
 void huawei_api_async_remove_qos_resource_request(void* instance);
 void huawei_api_remove_qos_resource_request(void* instance);
@@ -35,10 +35,10 @@ int main(int argc, char* argv[])
     void* handle = huawei_api_create(realm, username, password, nonce);
     huawei_api_set_callback(handle, curl_callback);
 
-    huawei_api_async_apply_qos_resource_request(handle, "111.206.12.231", "10.12.26.27");
+    huawei_api_async_apply_qos_resource_request(handle);
     huawei_api_async_remove_qos_resource_request(handle);
 
-    huawei_api_apply_qos_resource_request(handle, "111.206.12.231", "10.12.26.27");
+    huawei_api_apply_qos_resource_request(handle);
     huawei_api_remove_qos_resource_request(handle);
 
     boost::this_thread::sleep_for(boost::chrono::seconds(10));

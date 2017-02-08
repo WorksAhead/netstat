@@ -26,8 +26,8 @@ void huawei_api_destory(void* instance);
 
 void huawei_api_set_callback(void* instance, huawei_api_callback_t callback);
 
-void huawei_api_async_apply_qos_resource_request(void* instance, const char* public_ip, const char* private_ip);
-void huawei_api_apply_qos_resource_request(void* instance, const char* public_ip, const char* private_ip);
+void huawei_api_async_apply_qos_resource_request(void* instance);
+void huawei_api_apply_qos_resource_request(void* instance);
 
 void huawei_api_async_remove_qos_resource_request(void* instance);
 void huawei_api_remove_qos_resource_request(void* instance);
@@ -52,6 +52,19 @@ static size_t RequestCallback(char *ptr, size_t size, size_t nmemb, void *userda
     instance->signal_(resultCode, resultMsg.c_str());
 
     size_t realsize = size * nmemb;
+    return realsize;
+}
+
+static size_t PublicIpQueryCallback(char *ptr, size_t size, size_t nmemb, void *userdata)
+{
+    size_t realsize = size * nmemb;
+    std::string json_str(ptr, 0, realsize);
+
+    json response = json::parse(json_str.c_str());
+
+    HuaweiAPI* instance = (HuaweiAPI*)userdata;
+    instance->public_ip_ = response.at("data").value("ip", "");
+
     return realsize;
 }
 
@@ -90,6 +103,64 @@ HuaweiAPI::Encrypt(const unsigned char* message, unsigned int len, unsigned char
     sha256_init(&sha256);
     sha256_update(&sha256, message, len);
     sha256_final(&sha256, result);
+}
+
+bool
+HuaweiAPI::get_ip_address()
+{
+    CURL* curl_handle = curl_easy_init();
+
+    if (!curl_handle)
+    {
+        return false;
+    }
+
+    // Set URL.
+    curl_easy_setopt(curl_handle, CURLOPT_URL, PUBLIC_IP_QUERY_URL);
+
+    // Set callback.
+    curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, PublicIpQueryCallback);
+    // Set callback user data.
+    curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void*)this);
+
+    // Set useragent.
+    curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
+
+    /* complete within 20 seconds */
+    curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT, 5L);
+
+    // GO!
+    CURLcode res = curl_easy_perform(curl_handle);
+    /* check for errors */
+    if (res != CURLE_OK)
+    {
+        std::string error_msg = "<error> Failed to get public ip addres, ";
+        error_msg += curl_easy_strerror(res);
+        signal_(res, error_msg.c_str());
+
+        curl_easy_cleanup(curl_handle);
+        return false;
+    }
+    else
+    {
+        char *private_ip;
+        res = curl_easy_getinfo(curl_handle, CURLINFO_LOCAL_IP, &private_ip);
+        if (res != CURLE_OK)
+        {
+            std::string error_msg = "<error> Failed to get local ip addres, ";
+            error_msg += curl_easy_strerror(res);
+            signal_(res, error_msg.c_str());
+
+            curl_easy_cleanup(curl_handle);
+            return false;
+        }
+        local_ip_ = private_ip;
+    }
+
+    // Release handles.
+    curl_easy_cleanup(curl_handle);
+
+    return true;
 }
 
 void
@@ -144,14 +215,14 @@ HuaweiAPI::ConstructApplyQoSResourceRequestHeaders()
 }
 
 std::string
-HuaweiAPI::ConstructApplyQoSResourceRequestBody(const std::string& public_ip, const std::string& private_ip)
+HuaweiAPI::ConstructApplyQoSResourceRequestBody()
 {
     json body;
 
     json::object_t userId =
     {
-        { "PublicIP", public_ip },
-        { "IP", private_ip },
+        { "PublicIP", public_ip_ },
+        { "IP", local_ip_ },
         { "IMSI", "460030123456789" },
     };
 
@@ -196,18 +267,23 @@ HuaweiAPI::ConstructApplyQoSResourceRequestBody(const std::string& public_ip, co
 }
 
 void
-HuaweiAPI::AsyncApplyQoSResourceRequest(const std::string& public_ip, const std::string& private_ip)
+HuaweiAPI::AsyncApplyQoSResourceRequest()
 {
     if (m_Thread != nullptr)
     {
         m_Thread->join();
     }
-    m_Thread.reset(new boost::thread(&HuaweiAPI::ApplyQoSResourceRequest, this, public_ip, private_ip));
+    m_Thread.reset(new boost::thread(&HuaweiAPI::ApplyQoSResourceRequest, this));
 }
 
 void
-HuaweiAPI::ApplyQoSResourceRequest(const std::string& public_ip, const std::string& private_ip)
+HuaweiAPI::ApplyQoSResourceRequest()
 {
+    if (!get_ip_address())
+    {
+        return;
+    }
+
     CURL* curl_handle = curl_easy_init();
     if (curl_handle)
     {
@@ -219,7 +295,7 @@ HuaweiAPI::ApplyQoSResourceRequest(const std::string& public_ip, const std::stri
         curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, headers);
 
         // Set body.
-        std::string body = ConstructApplyQoSResourceRequestBody(public_ip, private_ip);
+        std::string body = ConstructApplyQoSResourceRequestBody();
         curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, body.c_str());
 
         // Set callback.
@@ -349,19 +425,19 @@ void huawei_api_set_callback(void* instance, huawei_api_callback_t callback)
     }
 }
 
-void huawei_api_async_apply_qos_resource_request(void* instance, const char* public_ip, const char* private_ip)
+void huawei_api_async_apply_qos_resource_request(void* instance)
 {
     if (instance)
     {
-        ((HuaweiAPI*)instance)->AsyncApplyQoSResourceRequest(public_ip, private_ip);
+        ((HuaweiAPI*)instance)->AsyncApplyQoSResourceRequest();
     }
 }
 
-void huawei_api_apply_qos_resource_request(void* instance, const char* public_ip, const char* private_ip)
+void huawei_api_apply_qos_resource_request(void* instance)
 {
     if (instance)
     {
-        ((HuaweiAPI*)instance)->ApplyQoSResourceRequest(public_ip, private_ip);
+        ((HuaweiAPI*)instance)->ApplyQoSResourceRequest();
     }
 }
 
