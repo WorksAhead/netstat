@@ -64,6 +64,13 @@ HuaweiAPI::HuaweiAPI(const std::string& realm, const std::string& username, cons
 HuaweiAPI::~HuaweiAPI()
 {
     curl_global_cleanup();
+
+    signal_.disconnect_all_slots();
+
+    if (m_Thread != nullptr)
+    {
+        m_Thread->join();
+    }
 }
 
 boost::signals2::connection
