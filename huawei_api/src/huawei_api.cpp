@@ -40,6 +40,10 @@ static size_t RequestCallback(char *ptr, size_t size, size_t nmemb, void *userda
 
     int resultCode = response.value("ResultCode", 0);
     std::string resultMsg = response.value("ResultMessage", "Success");
+    if (resultCode != 0)
+    {
+        resultMsg = "<error> " + resultMsg;
+    }
 
     HuaweiAPI* instance = (HuaweiAPI*)userdata;
     // Update CorrelationId.
@@ -231,7 +235,9 @@ HuaweiAPI::ApplyQoSResourceRequest(const std::string& public_ip, const std::stri
         /* check for errors */
         if (res != CURLE_OK)
         {
-            signal_(res, curl_easy_strerror(res));
+            std::string error_msg = "<error> ";
+            error_msg += curl_easy_strerror(res);
+            signal_(res, error_msg.c_str());
         }
 
         // Release handles.
@@ -240,7 +246,7 @@ HuaweiAPI::ApplyQoSResourceRequest(const std::string& public_ip, const std::stri
     }
     else
     {
-        signal_(-1, "curl_easy_init failed.");
+        signal_(-1, "<error> curl_easy_init failed.");
     }
 }
 
@@ -291,12 +297,14 @@ HuaweiAPI::RemoveQoSResourceRequest()
         /* check for errors */
         if (res != CURLE_OK)
         {
-            signal_(res, curl_easy_strerror(res));
+            std::string error_msg = "<error> ";
+            error_msg += curl_easy_strerror(res);
+            signal_(res, error_msg.c_str());
         }
         else
         {
             long response_code;
-            const char* error_msg = "Unknown Error";
+            const char* error_msg = "<error> Unknown Error";
 
             curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
 
@@ -314,7 +322,7 @@ HuaweiAPI::RemoveQoSResourceRequest()
     }
     else
     {
-        signal_(-1, "curl_easy_init failed.");
+        signal_(-1, "<error> curl_easy_init failed.");
     }
 }
 
