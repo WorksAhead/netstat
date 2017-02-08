@@ -8,6 +8,8 @@
 
 namespace huawei
 {
+    #define QOS_RESOURCE_REQUEST_URL "http://183.207.208.184/services/QoSV1/DynamicQoS"
+
     class HuaweiAPI
     {
     public:
@@ -20,13 +22,16 @@ namespace huawei
         // Register callback functions.
         boost::signals2::connection RegisterCallback(const SignalType::slot_type& subscriber);
 
-        // Do QoSResourceRequest.
-        void AsyncApplyQoSResourceRequest(const char* huaweiApiUrl);
-        void ApplyQoSResourceRequest(const char* huaweiApiUrl);
+        // Apply QoSResourceRequest.
+        void AsyncApplyQoSResourceRequest();
+        void ApplyQoSResourceRequest();
 
         // Stop QoSResourceRequest.
-        void AsyncRemoveQoSResourceRequest(const char* huaweiApiUrl);
-        void RemoveQoSResourceRequest(const char* huaweiApiUrl);
+        void AsyncRemoveQoSResourceRequest();
+        void RemoveQoSResourceRequest();
+
+        // CorrelationId accessor. uniquely specify a QoS request.
+        std::string correlation_id_;
 
         // Callback signal object.
         SignalType signal_;
@@ -34,10 +39,17 @@ namespace huawei
     private:
         // SHA-256 encrypt.
         void Encrypt(const unsigned char* message, unsigned int len, unsigned char* result);
-        // Construct curl http header, must be called after init curl.
-        struct curl_slist* ConstructHeaders();
-        // Construct QoSResourceRequest api body.
-        std::string ConstructQoSResourceRequestBody();
+
+        // Construct Authorization header.
+        void AddAuthorizationHeaders(struct curl_slist** headerList);
+
+        // Construct ApplyQoSResourceRequest header, must be called after init curl.
+        struct curl_slist* ConstructApplyQoSResourceRequestHeaders();
+        // Construct ApplyQoSResourceRequest api body.
+        std::string ConstructApplyQoSResourceRequestBody();
+
+        // Construct RemoveQoSResourceRequest header.
+        struct curl_slist* ConstructRemoveQoSResourceRequestHeaders();
 
     private:
         std::string m_Realm;

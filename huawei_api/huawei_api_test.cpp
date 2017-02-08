@@ -13,11 +13,11 @@ void huawei_api_destory(void* instance);
 
 void huawei_api_set_callback(void* instance, huawei_api_callback_t callback);
 
-void huawei_api_async_apply_qos_resource_request(void* instance, const char* url);
-void huawei_api_apply_qos_resource_request(void* instance, const char* url);
+void huawei_api_async_apply_qos_resource_request(void* instance);
+void huawei_api_apply_qos_resource_request(void* instance);
 
-void huawei_api_async_remove_qos_resource_request(void* instance, const char* url);
-void huawei_api_remove_qos_resource_request(void* instance, const char* url);
+void huawei_api_async_remove_qos_resource_request(void* instance);
+void huawei_api_remove_qos_resource_request(void* instance);
 
 // callback
 void curl_callback(int result, const char* msg)
@@ -35,15 +35,15 @@ int main(int argc, char* argv[])
     void* handle = huawei_api_create(realm, username, password, nonce);
     huawei_api_set_callback(handle, curl_callback);
 
-    huawei_api_async_apply_qos_resource_request(handle, "http://183.207.208.184/services/QoSV1/DynamicQoS");
-    //huawei_api_async_remove_qos_resource_request(handle, "http://183.207.208.184/services/QoSV1/DynamicQoS");
+    huawei_api_async_apply_qos_resource_request(handle);
+    huawei_api_async_remove_qos_resource_request(handle);
 
-    huawei_api_apply_qos_resource_request(handle, "http://183.207.208.184/services/QoSV1/DynamicQoS");
-    //huawei_api_remove_qos_resource_request(handle, "http://183.207.208.184/services/QoSV1/DynamicQoS");
-    
-    huawei_api_destory(handle);
+    huawei_api_apply_qos_resource_request(handle);
+    huawei_api_remove_qos_resource_request(handle);
 
     boost::this_thread::sleep_for(boost::chrono::seconds(10));
+    
+    huawei_api_destory(handle);
 
 	return 0;
 }
