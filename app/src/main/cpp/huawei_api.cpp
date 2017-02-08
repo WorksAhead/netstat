@@ -11,11 +11,11 @@
 
 using namespace huawei;
 
-using json = nlohmann::json;
-
 using namespace boost::gregorian;
 using namespace boost::posix_time;
 using namespace boost::local_time;
+
+using json = nlohmann::json;
 
 // interface
 // result 0 is success, everything else is wrong.
@@ -26,12 +26,30 @@ void huawei_api_destory(void* instance);
 
 void huawei_api_set_callback(void* instance, huawei_api_callback_t callback);
 
-void huawei_api_async_apply_qos_resource_request(void* instance, const char* url);
-void huawei_api_apply_qos_resource_request(void* instance, const char* url);
+void huawei_api_async_apply_qos_resource_request(void* instance);
+void huawei_api_apply_qos_resource_request(void* instance);
 
-void huawei_api_async_remove_qos_resource_request(void* instance, const char* url);
-void huawei_api_remove_qos_resource_request(void* instance, const char* url);
+void huawei_api_async_remove_qos_resource_request(void* instance);
+void huawei_api_remove_qos_resource_request(void* instance);
 // end
+
+// libcurl CURLOPT_WRITEFUNCTION callback.
+static size_t RequestCallback(char *ptr, size_t size, size_t nmemb, void *userdata)
+{
+    json response = json::parse(ptr);
+
+    int resultCode = response.value("ResultCode", 0);
+    std::string resultMsg = response.value("ResultMessage", "Success");
+
+    HuaweiAPI* instance = (HuaweiAPI*)userdata;
+    // Update CorrelationId.
+    instance->correlation_id_ = response.value("CorrelationId", "0");
+    // Do Callback.
+    instance->signal_(resultCode, resultMsg.c_str());
+
+    size_t realsize = size * nmemb;
+    return realsize;
+}
 
 HuaweiAPI::HuaweiAPI(const std::string& realm, const std::string& username, const std::string& password, const std::string& nonce)
     : m_Realm{realm}
@@ -39,16 +57,26 @@ HuaweiAPI::HuaweiAPI(const std::string& realm, const std::string& username, cons
     , m_Password{password}
     , m_Nonce{nonce}
 {
+    // Init curl
+    curl_global_init(CURL_GLOBAL_ALL);
 }
 
 HuaweiAPI::~HuaweiAPI()
 {
+    curl_global_cleanup();
+
+    signal_.disconnect_all_slots();
+
+    if (m_Thread != nullptr)
+    {
+        m_Thread->join();
+    }
 }
 
 boost::signals2::connection
 HuaweiAPI::RegisterCallback(const SignalType::slot_type& subscriber)
 {
-    return m_Signal.connect(subscriber);
+    return signal_.connect(subscriber);
 }
 
 void
@@ -60,8 +88,8 @@ HuaweiAPI::Encrypt(const unsigned char* message, unsigned int len, unsigned char
     sha256_final(&sha256, result);
 }
 
-struct curl_slist*
-HuaweiAPI::ConstructHeaders()
+void
+HuaweiAPI::AddAuthorizationHeaders(struct curl_slist** headerList)
 {
     // Get timestamp
     time_zone_ptr timeZone{ new posix_time_zone{ "CET+8" } };
@@ -91,11 +119,20 @@ HuaweiAPI::ConstructHeaders()
     // Construct author.
     std::string author = boost::str(boost::format("Authorization: WSSE realm=\"%1%\", profile=\"UsernameToken\"") % m_Realm);
 
+    *headerList = curl_slist_append(*headerList, author.c_str());
+    *headerList = curl_slist_append(*headerList, wsse.c_str());
+}
+
+struct curl_slist*
+HuaweiAPI::ConstructApplyQoSResourceRequestHeaders()
+{
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "Content-Type: application/json");
     headers = curl_slist_append(headers, "Accept: application/json");
-    headers = curl_slist_append(headers, author.c_str());
-    headers = curl_slist_append(headers, wsse.c_str());
+
+    // Add author headers.
+    AddAuthorizationHeaders(&headers);
+
     // Set 'Expect' header field to null.
     headers = curl_slist_append(headers, "Expect:");
 
@@ -103,7 +140,7 @@ HuaweiAPI::ConstructHeaders()
 }
 
 std::string
-HuaweiAPI::ConstructQoSResourceRequestBody()
+HuaweiAPI::ConstructApplyQoSResourceRequestBody()
 {
     json body;
 
@@ -155,56 +192,130 @@ HuaweiAPI::ConstructQoSResourceRequestBody()
 }
 
 void
-HuaweiAPI::AsyncApplyQoSResourceRequest(const char* huaweiApiUrl)
+HuaweiAPI::AsyncApplyQoSResourceRequest()
 {
     if (m_Thread != nullptr)
     {
         m_Thread->join();
     }
-    m_Thread.reset(new boost::thread(&HuaweiAPI::ApplyQoSResourceRequest, this, huaweiApiUrl));
+    m_Thread.reset(new boost::thread(&HuaweiAPI::ApplyQoSResourceRequest, this));
 }
 
 void
-HuaweiAPI::ApplyQoSResourceRequest(const char* huaweiApiUrl)
+HuaweiAPI::ApplyQoSResourceRequest()
 {
-    // Init curl
-    curl_global_init(CURL_GLOBAL_ALL);
-
-    CURL* curl = curl_easy_init();
-    if (curl)
+    CURL* curl_handle = curl_easy_init();
+    if (curl_handle)
     {
-        // Setting URL.
-        curl_easy_setopt(curl, CURLOPT_URL, huaweiApiUrl);
+        // Set URL.
+        curl_easy_setopt(curl_handle, CURLOPT_URL, QOS_RESOURCE_REQUEST_URL);
 
-        // Setting headers.
-        struct curl_slist *headers = ConstructHeaders();
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        // Set headers.
+        struct curl_slist *headers = ConstructApplyQoSResourceRequestHeaders();
+        curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, headers);
 
-        std::string body = ConstructQoSResourceRequestBody();
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
+        // Set body.
+        std::string body = ConstructApplyQoSResourceRequestBody();
+        curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, body.c_str());
+
+        // Set callback.
+        curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, RequestCallback);
+        // Set callback user data.
+        curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void*)this);
+
+        // Set useragent.
+        curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
 
         // GO!
-        CURLcode res = curl_easy_perform(curl);
-        m_Signal(res, curl_easy_strerror(res));
+        CURLcode res = curl_easy_perform(curl_handle);
+        /* check for errors */
+        if (res != CURLE_OK)
+        {
+            signal_(res, curl_easy_strerror(res));
+        }
 
         // Release handles.
         curl_slist_free_all(headers);
-        curl_easy_cleanup(curl);
+        curl_easy_cleanup(curl_handle);
     }
+    else
+    {
+        signal_(-1, "curl_easy_init failed.");
+    }
+}
 
-    curl_global_cleanup();
+struct curl_slist*
+HuaweiAPI::ConstructRemoveQoSResourceRequestHeaders()
+{
+    struct curl_slist *headers = NULL;
+    // Add author headers.
+    AddAuthorizationHeaders(&headers);
+    // Set 'Expect' header field to null.
+    headers = curl_slist_append(headers, "Expect:");
+
+    return headers;
 }
 
 void
-HuaweiAPI::AsyncRemoveQoSResourceRequest(const char* huaweiApiUrl)
+HuaweiAPI::AsyncRemoveQoSResourceRequest()
 {
-
+    if (m_Thread != nullptr)
+    {
+        m_Thread->join();
+    }
+    m_Thread.reset(new boost::thread(&HuaweiAPI::RemoveQoSResourceRequest, this));
 }
 
 void
-HuaweiAPI::RemoveQoSResourceRequest(const char* huaweiApiUrl)
+HuaweiAPI::RemoveQoSResourceRequest()
 {
+    CURL* curl_handle = curl_easy_init();
+    if (curl_handle)
+    {
+        // Set URL.
+        std::string huaweiApiUrl = boost::str(boost::format("%1%/%2%") % QOS_RESOURCE_REQUEST_URL % correlation_id_);
+        curl_easy_setopt(curl_handle, CURLOPT_URL, huaweiApiUrl.c_str());
 
+        // Set headers.
+        struct curl_slist *headers = ConstructRemoveQoSResourceRequestHeaders();
+        curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, headers);
+
+        // Set DELETE request.
+        curl_easy_setopt(curl_handle, CURLOPT_CUSTOMREQUEST, "DELETE");
+
+        // Set useragent.
+        curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
+
+        // GO!
+        CURLcode res = curl_easy_perform(curl_handle);
+        /* check for errors */
+        if (res != CURLE_OK)
+        {
+            signal_(res, curl_easy_strerror(res));
+        }
+        else
+        {
+            long response_code;
+            const char* error_msg = "Unknown Error";
+
+            curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
+
+            if (response_code == 204)
+            {
+                error_msg = "No Content";
+            }
+
+            signal_(response_code, error_msg);
+        }
+
+        // Release handles.
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl_handle);
+    }
+    else
+    {
+        signal_(-1, "curl_easy_init failed.");
+    }
 }
 
 // --------------------------------------------------------------------------
@@ -230,34 +341,34 @@ void huawei_api_set_callback(void* instance, huawei_api_callback_t callback)
     }
 }
 
-void huawei_api_async_apply_qos_resource_request(void* instance, const char* url)
+void huawei_api_async_apply_qos_resource_request(void* instance)
 {
     if (instance)
     {
-        ((HuaweiAPI*)instance)->AsyncApplyQoSResourceRequest(url);
+        ((HuaweiAPI*)instance)->AsyncApplyQoSResourceRequest();
     }
 }
 
-void huawei_api_apply_qos_resource_request(void* instance, const char* url)
+void huawei_api_apply_qos_resource_request(void* instance)
 {
     if (instance)
     {
-        ((HuaweiAPI*)instance)->ApplyQoSResourceRequest(url);
+        ((HuaweiAPI*)instance)->ApplyQoSResourceRequest();
     }
 }
 
-void huawei_api_async_remove_qos_resource_request(void* instance, const char* url)
+void huawei_api_async_remove_qos_resource_request(void* instance)
 {
     if (instance)
     {
-        ((HuaweiAPI*)instance)->AsyncRemoveQoSResourceRequest(url);
+        ((HuaweiAPI*)instance)->AsyncRemoveQoSResourceRequest();
     }
 }
 
-void huawei_api_remove_qos_resource_request(void* instance, const char* url)
+void huawei_api_remove_qos_resource_request(void* instance)
 {
     if (instance)
     {
-        ((HuaweiAPI*)instance)->RemoveQoSResourceRequest(url);
+        ((HuaweiAPI*)instance)->RemoveQoSResourceRequest();
     }
 }

@@ -32,10 +32,10 @@ typedef void(*huawei_api_callback_t)(int result, const char* msg);
 void* huawei_api_create(const char* realm, const char* username, const char* password, const char* nonce);
 void huawei_api_destory(void* instance);
 void huawei_api_set_callback(void* instance, huawei_api_callback_t callback);
-void huawei_api_async_apply_qos_resource_request(void* instance, const char* url);
-void huawei_api_apply_qos_resource_request(void* instance, const char* url);
-void huawei_api_async_remove_qos_resource_request(void* instance, const char* url);
-void huawei_api_remove_qos_resource_request(void* instance, const char* url);
+void huawei_api_async_apply_qos_resource_request(void* instance);
+void huawei_api_apply_qos_resource_request(void* instance);
+void huawei_api_async_remove_qos_resource_request(void* instance);
+void huawei_api_remove_qos_resource_request(void* instance);
 
 const char* realm = "ChangyouRealm";
 const char* username = "ChangyouDevice";
@@ -69,7 +69,7 @@ void huawei_callback(int result, const char* msg)
 	}
 	else
 	{
-		NativeLogCallback("Speed up failed.");
+		NativeLogCallback("<error> Speed up failed.");
 	}
 
 	NativeLogCallback(msg);
@@ -122,7 +122,8 @@ extern "C" jstring
 extern "C" bool
 Java_com_cyou_netstat_MainActivity_GlobalInitialize(
 		JNIEnv* env,
-		jobject caller)
+		jobject caller,
+		jstring ipAddress)
 {
 	NativeLogCallback("initializing native libraries...\n");
 
@@ -137,6 +138,9 @@ Java_com_cyou_netstat_MainActivity_GlobalInitialize(
 	// initialize huawei api
 	gHuaweiApiInstance = huawei_api_create(realm, username, password, nonce);
 	huawei_api_set_callback(gHuaweiApiInstance, huawei_callback);
+
+	const char *nativeString = env->GetStringUTFChars(ipAddress, 0);
+	env->ReleaseStringUTFChars(ipAddress, nativeString);
 
 	return true;
 }
@@ -205,7 +209,7 @@ Java_com_cyou_netstat_MainActivity_StartSpeedup(
 		JNIEnv* env,
 		jobject /* this */)
 {
-	huawei_api_async_apply_qos_resource_request(gHuaweiApiInstance, "http://183.207.208.184/services/QoSV1/DynamicQoS");
+	huawei_api_async_apply_qos_resource_request(gHuaweiApiInstance);
 }
 
 extern "C" void
@@ -213,5 +217,5 @@ Java_com_cyou_netstat_MainActivity_StopSpeedup(
 		JNIEnv* env,
 		jobject /* this */)
 {
-	huawei_api_async_remove_qos_resource_request(gHuaweiApiInstance, "http://183.207.208.184/services/QoSV1/DynamicQoS");
+	huawei_api_async_remove_qos_resource_request(gHuaweiApiInstance);
 }

@@ -1,6 +1,7 @@
 package com.cyou.netstat;
 
 import android.content.Context;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.support.v7.app.AppCompatActivity;
@@ -38,6 +39,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 	private static long BaseClockTime = 0;
 
 	private static boolean CurrentSpeedupState = false;
+	private static String CurrentIpAddress = null;
 
 	@Override
 	public void onChronometerTick(Chronometer var1)
@@ -48,7 +50,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 			String logMsgs[] = logMsg.split("\n");
 			for (String singleLog : logMsgs)
 			{
-				LogUtil.LogToView(singleLog, LogUtil.LogType.Info, false);
+				// <error>
+				if (singleLog.startsWith("<error>"))
+				{
+					LogUtil.LogToView(singleLog, LogUtil.LogType.Critical, false);
+				}
+				else
+				{
+					LogUtil.LogToView(singleLog, LogUtil.LogType.Info, false);
+				}
 			}
 		}
 		BaseClockTime = var1.getBase();
@@ -122,12 +132,26 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 				LogUtil.LogToView("error when set log path !", LogUtil.LogType.Critical);
 			}
 
+			// get ip address
+			try
+			{
+				WifiManager wm = (WifiManager) getSystemService(WIFI_SERVICE);
+				int ipAddress = wm.getConnectionInfo().getIpAddress();
+				CurrentIpAddress = String.format("%d.%d.%d.%d", (ipAddress & 0xff),(ipAddress >> 8 & 0xff),(ipAddress >> 16 & 0xff),(ipAddress >> 24 & 0xff));
+			}
+			catch (Exception e)
+			{
+				LogUtil.LogToView("error when get ip address !", LogUtil.LogType.Critical);
+			}
+			LogUtil.LogToView("ip address is : " + CurrentIpAddress);
+
+
 			// disable widgets
 			DelayRadio.setChecked(true);
 			setWidgetsEnabled(false);
 
 			/// initialize native libraries
-			GlobalInitialize();
+			GlobalInitialize(CurrentIpAddress);
 
 			/// try get root permission
 			/*
@@ -340,6 +364,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		return true;
 	}
 
+	private void CheckIpAddressChange()
+	{
+		if (CurrentIpAddress != null)
+		{
+			try
+			{
+				WifiManager wm = (WifiManager) getSystemService(WIFI_SERVICE);
+				int ipAddress = wm.getConnectionInfo().getIpAddress();
+				String currentIp = String.format("%d.%d.%d.%d", (ipAddress & 0xff),(ipAddress >> 8 & 0xff),(ipAddress >> 16 & 0xff),(ipAddress >> 24 & 0xff));
+				if (currentIp != CurrentIpAddress)
+				{
+					LogUtil.LogToView("ip changed during test !", LogUtil.LogType.Critical);
+				}
+			}
+			catch (Exception e)
+			{
+				LogUtil.LogToView("ip changed during test !", LogUtil.LogType.Critical);
+			}
+
+		}
+	}
+
 	// public native String stringFromJNI();
 	public native void StartDelayTest(String logPath);
 	public native void StopDelayTest();
@@ -347,7 +393,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 	public native void StopBandwidthTest();
 	public native boolean StartSpeedup();
 	public native void StopSpeedup();
-	public native void GlobalInitialize();
+	public native void GlobalInitialize(String ipAddress);
 	public native void GlobalDestroy();
 	public native String GetNativeLog();
 
