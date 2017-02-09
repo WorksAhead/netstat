@@ -40,6 +40,10 @@ static size_t RequestCallback(char *ptr, size_t size, size_t nmemb, void *userda
 
     int resultCode = response.value("ResultCode", 0);
     std::string resultMsg = response.value("ResultMessage", "Success");
+    if (resultCode != 0)
+    {
+        resultMsg = "<error> " + resultMsg;
+    }
 
     HuaweiAPI* instance = (HuaweiAPI*)userdata;
     // Update CorrelationId.
@@ -48,6 +52,19 @@ static size_t RequestCallback(char *ptr, size_t size, size_t nmemb, void *userda
     instance->signal_(resultCode, resultMsg.c_str());
 
     size_t realsize = size * nmemb;
+    return realsize;
+}
+
+static size_t PublicIpQueryCallback(char *ptr, size_t size, size_t nmemb, void *userdata)
+{
+    size_t realsize = size * nmemb;
+    std::string json_str(ptr, 0, realsize);
+
+    json response = json::parse(json_str.c_str());
+
+    HuaweiAPI* instance = (HuaweiAPI*)userdata;
+    instance->public_ip_ = response.at("data").value("ip", "");
+
     return realsize;
 }
 
@@ -86,6 +103,64 @@ HuaweiAPI::Encrypt(const unsigned char* message, unsigned int len, unsigned char
     sha256_init(&sha256);
     sha256_update(&sha256, message, len);
     sha256_final(&sha256, result);
+}
+
+bool
+HuaweiAPI::get_ip_address()
+{
+    CURL* curl_handle = curl_easy_init();
+
+    if (!curl_handle)
+    {
+        return false;
+    }
+
+    // Set URL.
+    curl_easy_setopt(curl_handle, CURLOPT_URL, PUBLIC_IP_QUERY_URL);
+
+    // Set callback.
+    curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, PublicIpQueryCallback);
+    // Set callback user data.
+    curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void*)this);
+
+    // Set useragent.
+    curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
+
+    /* complete within 20 seconds */
+    curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT, 5L);
+
+    // GO!
+    CURLcode res = curl_easy_perform(curl_handle);
+    /* check for errors */
+    if (res != CURLE_OK)
+    {
+        std::string error_msg = "<error> Failed to get public ip addres, ";
+        error_msg += curl_easy_strerror(res);
+        signal_(res, error_msg.c_str());
+
+        curl_easy_cleanup(curl_handle);
+        return false;
+    }
+    else
+    {
+        char *private_ip;
+        res = curl_easy_getinfo(curl_handle, CURLINFO_LOCAL_IP, &private_ip);
+        if (res != CURLE_OK)
+        {
+            std::string error_msg = "<error> Failed to get local ip addres, ";
+            error_msg += curl_easy_strerror(res);
+            signal_(res, error_msg.c_str());
+
+            curl_easy_cleanup(curl_handle);
+            return false;
+        }
+        local_ip_ = private_ip;
+    }
+
+    // Release handles.
+    curl_easy_cleanup(curl_handle);
+
+    return true;
 }
 
 void
@@ -146,8 +221,8 @@ HuaweiAPI::ConstructApplyQoSResourceRequestBody()
 
     json::object_t userId =
     {
-        { "PublicIP", "111.206.12.231" },
-        { "IP", "10.12.26.27" },
+        { "PublicIP", public_ip_ },
+        { "IP", local_ip_ },
         { "IMSI", "460030123456789" },
     };
 
@@ -204,6 +279,11 @@ HuaweiAPI::AsyncApplyQoSResourceRequest()
 void
 HuaweiAPI::ApplyQoSResourceRequest()
 {
+    if (!get_ip_address())
+    {
+        return;
+    }
+
     CURL* curl_handle = curl_easy_init();
     if (curl_handle)
     {
@@ -231,7 +311,9 @@ HuaweiAPI::ApplyQoSResourceRequest()
         /* check for errors */
         if (res != CURLE_OK)
         {
-            signal_(res, curl_easy_strerror(res));
+            std::string error_msg = "<error> ";
+            error_msg += curl_easy_strerror(res);
+            signal_(res, error_msg.c_str());
         }
 
         // Release handles.
@@ -240,7 +322,7 @@ HuaweiAPI::ApplyQoSResourceRequest()
     }
     else
     {
-        signal_(-1, "curl_easy_init failed.");
+        signal_(-1, "<error> curl_easy_init failed.");
     }
 }
 
@@ -291,12 +373,14 @@ HuaweiAPI::RemoveQoSResourceRequest()
         /* check for errors */
         if (res != CURLE_OK)
         {
-            signal_(res, curl_easy_strerror(res));
+            std::string error_msg = "<error> ";
+            error_msg += curl_easy_strerror(res);
+            signal_(res, error_msg.c_str());
         }
         else
         {
             long response_code;
-            const char* error_msg = "Unknown Error";
+            const char* error_msg = "<error> Unknown Error";
 
             curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
 
@@ -314,7 +398,7 @@ HuaweiAPI::RemoveQoSResourceRequest()
     }
     else
     {
-        signal_(-1, "curl_easy_init failed.");
+        signal_(-1, "<error> curl_easy_init failed.");
     }
 }
 

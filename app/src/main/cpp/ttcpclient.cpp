@@ -89,6 +89,11 @@ TTcpClient::HandleConnect(const boost::system::error_code& error)
             boost::bind(&TTcpClient::HandleWrite, this,
                 boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
     }
+    else
+    {
+        m_Signal("<error> Unable to connect to ttcpserver.");
+        log("<error> Unable to connect to ttcpserver.");
+    }
 }
 
 void
@@ -110,6 +115,11 @@ TTcpClient::HandleWrite(const boost::system::error_code& error, std::size_t byte
             boost::asio::buffer(m_SndBuff),
             boost::bind(&TTcpClient::HandleWrite, this,
                 boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+    }
+    else
+    {
+        m_Signal("<error> Connection disconnected.");
+        log("<error> Connection disconnected.");
     }
 }
 
