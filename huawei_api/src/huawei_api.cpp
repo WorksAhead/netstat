@@ -63,7 +63,16 @@ static size_t PublicIpQueryCallback(char *ptr, size_t size, size_t nmemb, void *
     json response = json::parse(json_str.c_str());
 
     HuaweiAPI* instance = (HuaweiAPI*)userdata;
-    instance->public_ip_ = response.at("data").value("ip", "");
+
+    std::string public_ip = response.at("data").value("ip", "");
+    // ip address has changed, notify the caller.
+    if (instance->public_ip_.length() != 0 && instance->public_ip_ != public_ip)
+    {
+        instance->local_ip_ = "0.0.0.0";
+        instance->signal_(-2, "<error> Public IP has changed.");
+    }
+
+    instance->public_ip_ = public_ip;
 
     return realsize;
 }
@@ -83,6 +92,12 @@ HuaweiAPI::~HuaweiAPI()
     curl_global_cleanup();
 
     signal_.disconnect_all_slots();
+
+    if (ip_address_monitor_thread_)
+    {
+        ip_address_monitor_thread_->interrupt();
+        ip_address_monitor_thread_->join();
+    }
 
     if (m_Thread != nullptr)
     {
@@ -106,8 +121,15 @@ HuaweiAPI::Encrypt(const unsigned char* message, unsigned int len, unsigned char
 }
 
 bool
-HuaweiAPI::get_ip_address()
+HuaweiAPI::get_ip_address(bool do_timeout_cb)
 {
+    /*
+    public_ip_ = "117.136.66.140";
+    local_ip_ = "10.43.213.156";
+
+    return true;
+    */
+
     CURL* curl_handle = curl_easy_init();
 
     if (!curl_handle)
@@ -134,9 +156,12 @@ HuaweiAPI::get_ip_address()
     /* check for errors */
     if (res != CURLE_OK)
     {
-        std::string error_msg = "<error> Failed to get public ip addres, ";
-        error_msg += curl_easy_strerror(res);
-        signal_(res, error_msg.c_str());
+        if (do_timeout_cb)
+        {
+            std::string error_msg = "<error> Failed to get public ip addres, ";
+            error_msg += curl_easy_strerror(res);
+            signal_(res, error_msg.c_str());
+        }
 
         curl_easy_cleanup(curl_handle);
         return false;
@@ -154,6 +179,13 @@ HuaweiAPI::get_ip_address()
             curl_easy_cleanup(curl_handle);
             return false;
         }
+
+        // local ip has changed.
+        if (local_ip_.length() != 0 && local_ip_ != private_ip && local_ip_ != "0.0.0.0")
+        {
+            signal_(-2, "<error> Local IP has changed.");
+        }
+
         local_ip_ = private_ip;
     }
 
@@ -223,13 +255,11 @@ HuaweiAPI::ConstructApplyQoSResourceRequestBody()
     {
         { "PublicIP", public_ip_ },
         { "IP", local_ip_ },
-        { "IMSI", "460030123456789" },
     };
 
     body["UserIdentifier"] = userId;
 
     body["OTTchargingId"] = "xxxxxssssssssyyyyyyynnnnnn123";
-    body["APN"] = "APNtest";
     body["ServiceId"] = "open_qos_3";
 
     json::array_t resFeatureProps;
@@ -319,6 +349,8 @@ HuaweiAPI::ApplyQoSResourceRequest()
         // Release handles.
         curl_slist_free_all(headers);
         curl_easy_cleanup(curl_handle);
+
+        ip_address_monitor_thread_.reset(new boost::thread(&HuaweiAPI::UpdateIpAddress, this));
     }
     else
     {
@@ -392,6 +424,15 @@ HuaweiAPI::RemoveQoSResourceRequest()
             signal_(response_code, error_msg);
         }
 
+        public_ip_ = "";
+        local_ip_ = "";
+
+        if (ip_address_monitor_thread_ != nullptr)
+        {
+            ip_address_monitor_thread_->interrupt();
+            ip_address_monitor_thread_->join();
+        }
+
         // Release handles.
         curl_slist_free_all(headers);
         curl_easy_cleanup(curl_handle);
@@ -399,6 +440,16 @@ HuaweiAPI::RemoveQoSResourceRequest()
     else
     {
         signal_(-1, "<error> curl_easy_init failed.");
+    }
+}
+
+void
+HuaweiAPI::UpdateIpAddress()
+{
+    while (true)
+    {
+        boost::this_thread::sleep_for(boost::chrono::seconds(15));
+        get_ip_address(false);
     }
 }
 

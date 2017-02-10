@@ -46,7 +46,7 @@ namespace huawei
         void Encrypt(const unsigned char* message, unsigned int len, unsigned char* result);
 
         // Get public & local ip.
-        bool get_ip_address();
+        bool get_ip_address(bool do_timeout_cb = true);
 
         // Construct Authorization header.
         void AddAuthorizationHeaders(struct curl_slist** headerList);
@@ -59,6 +59,8 @@ namespace huawei
         // Construct RemoveQoSResourceRequest header.
         struct curl_slist* ConstructRemoveQoSResourceRequestHeaders();
 
+        void UpdateIpAddress();
+
     private:
         std::string m_Realm;
         std::string m_Username;
@@ -66,6 +68,7 @@ namespace huawei
         std::string m_Nonce;
 
         boost::shared_ptr<boost::thread> m_Thread;
+        boost::shared_ptr<boost::thread> ip_address_monitor_thread_;
     };
 }
 

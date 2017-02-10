@@ -36,12 +36,16 @@ int main(int argc, char* argv[])
     huawei_api_set_callback(handle, curl_callback);
 
     huawei_api_async_apply_qos_resource_request(handle);
+    boost::this_thread::sleep_for(boost::chrono::seconds(20));
     huawei_api_async_remove_qos_resource_request(handle);
 
-    huawei_api_apply_qos_resource_request(handle);
-    huawei_api_remove_qos_resource_request(handle);
+    //boost::this_thread::sleep_for(boost::chrono::seconds(15));
 
-    boost::this_thread::sleep_for(boost::chrono::seconds(10));
+    //huawei_api_apply_qos_resource_request(handle);
+    //boost::this_thread::sleep_for(boost::chrono::seconds(10));
+    //huawei_api_remove_qos_resource_request(handle);
+
+    //boost::this_thread::sleep_for(boost::chrono::seconds(10));
     
     huawei_api_destory(handle);
 
