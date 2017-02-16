@@ -13,3 +13,16 @@
 /latency_test/intermediate
 /latency_test/build/*.VC.db
 /latency_test/bin
+
+# huawei
+/huawei/build
+
+# huawei_api_server
+/huawei/huawei_api_server/dependencies/curl
+/huawei/huawei_api_server/dependencies/json
+/huawei/huawei_api_server/dependencies/b64.c/build
+/huawei/huawei_api_server/dependencies/hmac/build
+
+# protobuf
+/huawei/protobuf/google_protobuf
+/huawei/protobuf/protos/cpp_out
