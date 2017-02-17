@@ -21,6 +21,9 @@ HuaweiApiServer::HuaweiApiServer(const std::string& address,
 #endif
     m_Signals.async_wait(boost::bind(&HuaweiApiServer::HandleStop, this));
 
+    // Register google protobuf message handler.
+    Connection::RegisterMessageHandler();
+
     // Open the acceptor with the option to reuse the address (i.e. SO_REUSEADDR).
     boost::asio::ip::tcp::resolver resolver(m_Acceptor.get_io_service());
     boost::asio::ip::tcp::resolver::query query(address, port);

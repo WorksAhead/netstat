@@ -1,12 +1,18 @@
 #include "connection.h"
-#include "logger.h"
+
 #include <boost/bind.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/format.hpp>
 
+#include "logger.h"
+#include "message_handler.h"
+
 using namespace huawei_api_server;
+using namespace huawei::api;
 
 Connection::ConnectionList Connection::s_ConnectionList;
+
+MessageHandler Connection::message_handler_;
 
 ConnectionPtr
 Connection::Create(boost::asio::io_service& IOService)
@@ -14,6 +20,13 @@ Connection::Create(boost::asio::io_service& IOService)
     ConnectionPtr conn(new Connection(IOService));
     s_ConnectionList.push_front(conn);
     return conn;
+}
+
+void Connection::RegisterMessageHandler()
+{
+    message_handler_.RegisterHandler(HuaweiApiMessage::MessageTypeCase::kApplyQosRequest, ApplyQoSRequest);
+    message_handler_.RegisterHandler(HuaweiApiMessage::MessageTypeCase::kRemoveQosRequest, RemoveQoSRequest);
+    message_handler_.RegisterHandler(HuaweiApiMessage::MessageTypeCase::kHeartbeatRequest, ReplyHeartbeatRequest);
 }
 
 Connection::Connection(boost::asio::io_service& IOService)
@@ -32,12 +45,9 @@ boost::asio::ip::tcp::socket& Connection::GetSocket()
     return m_Socket;
 }
 
-void Connection::HuaweiApiCallback(int result, const std::string& message) {
-
-}
-
 void Connection::Start()
 {
+    /*
     // Save address and port.
     remote_public_ip_ = m_Socket.remote_endpoint().address().to_string();
 
@@ -56,6 +66,7 @@ void Connection::Start()
 
     huawei_api_ = new HuaweiAPI(realm, username, password, nonce);
     huawei_api_->RegisterCallback(boost::bind(&Connection::HuaweiApiCallback, this, _1, _2));
+    */
 
     m_RevBuff = { '\n' };
 
@@ -66,11 +77,29 @@ void Connection::Start()
             boost::asio::placeholders::bytes_transferred));
 }
 
-void Connection::HandleRead(const boost::system::error_code& err,
-    std::size_t bytes_transferred)
-{
+void Connection::HandleRead(const boost::system::error_code& err, 
+                            std::size_t bytes_transferred) {
     if (!err)
     {
+        HuaweiApiMessage huawei_api_message;
+        if (!huawei_api_message.ParseFromArray(m_RevBuff.data(), (int)bytes_transferred))
+        {
+            Close();
+            return;
+        }
+
+        HuaweiApiMessage::MessageTypeCase sub_message_type = huawei_api_message.message_type_case();
+        const google::protobuf::FieldDescriptor* sub_message_descriptor = huawei_api_message.GetDescriptor()->FindFieldByNumber(sub_message_type);
+        const google::protobuf::Message& sub_message = huawei_api_message.GetReflection()->GetMessage(huawei_api_message, sub_message_descriptor);
+
+        // Call handler.
+        MessageHandler::Handler handler = message_handler_.GetHandler(sub_message_type);
+        if (handler != nullptr)
+        {
+            handler(*this, sub_message);
+        }
+
+        /*
         std::string local_ip(m_RevBuff.begin(), m_RevBuff.end());
         if (remote_local_ip_ != local_ip)
         {
@@ -85,6 +114,7 @@ void Connection::HandleRead(const boost::system::error_code& err,
             boost::bind(&Connection::HandleRead, shared_from_this(),
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
+        */
     }
     else
     {
@@ -109,4 +139,34 @@ Connection::Close()
         }
     }
     s_ConnectionList.remove(shared_from_this());
+}
+
+//
+huawei::api::ErrorCode Connection::ApplyQoSRequest(
+    Connection& connection, 
+    const google::protobuf::Message& message) {
+
+    if (message.GetTypeName() != "huawei.api.ApplyQoSRequest")
+    {
+        std::cerr << "Message type is incorrect." << std::endl;
+        return ErrorCode::ERROR_CODE_INVALID_MSG;
+    }
+
+    const huawei::api::ApplyQoSRequest& apply_qos_request = (huawei::api::ApplyQoSRequest&)(message);
+
+    connection.huawei_api_->AsyncApplyQoSResourceRequest(apply_qos_request.local_ip(), connection.remote_public_ip_);
+
+    return huawei::api::ErrorCode::ERROR_CODE_NONE; 
+}
+
+huawei::api::ErrorCode Connection::RemoveQoSRequest(
+    Connection& connection,
+    const google::protobuf::Message& message) { 
+    return huawei::api::ErrorCode::ERROR_CODE_NONE; 
+}
+
+huawei::api::ErrorCode Connection::ReplyHeartbeatRequest(
+    Connection& connection,
+    const google::protobuf::Message& message) { 
+    return huawei::api::ErrorCode::ERROR_CODE_NONE; 
 }
