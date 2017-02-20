@@ -1,13 +1,13 @@
 @ECHO OFF
 
-SET DEP_DIR=%CD%\huawei_api_server\dependencies
+SET DEP_DIR=%CD%\dependencies
 
 SET CURL_DIR=%DEP_DIR%\curl
 SET JSON_DIR=%DEP_DIR%\json
 SET HMAC_DIR=%DEP_DIR%\hmac
 SET B64C_DIR=%DEP_DIR%\b64.c
 
-SET PROTOBUF_ROOT_DIR=%CD%\protobuf
+SET PROTOBUF_ROOT_DIR=%CD%\..\protobuf
 SET PROTOBUF_DIR=%PROTOBUF_ROOT_DIR%\google_protobuf
 
 SET CURL_GIT=https://github.com/curl/curl.git
@@ -83,4 +83,4 @@ IF EXIST build (
 )
 ECHO Generate Visual Studio project ...
 MKDIR build & CD build
-cmake -G "Visual Studio 14 2015 Win64" -DProtobuf_SRC_ROOT_FOLDER="%PROTOBUF_DIR%" -DProtobuf_PROTOC_EXECUTABLE="%PROTOBUF_DIR%\cmake\build\Release\protoc.exe" -DProtobuf_LIBRARIES="libprotoc.lib;libprotobuf.lib" -DCURL_INCLUDE_DIR="%CURL_DIR%\include" -DCURL_LIBRARY="%CURL_DIR%\build\lib" -DJSON_INCLUDE_DIR="%JSON_DIR%\src" -DHMAC_INCLUDE_DIR="%HMAC_DIR%" -DHMAC_LIBRARY="%HMAC_DIR%\build\lib" -DB64C_INCLUDE_DIR="%B64C_DIR%" -DB64C_LIBRARY="%B64C_DIR%\build\lib" ..
+cmake -G "Visual Studio 14 2015 Win64" -DProtobuf_SRC_ROOT_FOLDER="%PROTOBUF_DIR%" -DProtobuf_PROTOC_EXECUTABLE="%PROTOBUF_DIR%\cmake\build\Release\protoc.exe" -DProtobuf_LIBRARIES="libprotoc.lib;libprotobuf.lib" -DCURL_INCLUDE_DIR="%CURL_DIR%\include" -DCURL_LIBRARY="%CURL_DIR%\build\lib" -DJSON_INCLUDE_DIR="%JSON_DIR%\src" -DHMAC_INCLUDE_DIR="%HMAC_DIR%" -DHMAC_LIBRARY="%HMAC_DIR%\build\lib" -DB64C_INCLUDE_DIR="%B64C_DIR%" -DB64C_LIBRARY="%B64C_DIR%\build\lib" ..\src

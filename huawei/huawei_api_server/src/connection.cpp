@@ -68,7 +68,7 @@ void Connection::Start()
     huawei_api_->RegisterCallback(boost::bind(&Connection::HuaweiApiCallback, this, _1, _2));
     */
 
-    m_RevBuff = { '\n' };
+    std::fill(std::begin(m_RevBuff), std::end(m_RevBuff), 0);
 
     // OK, it's time to read data.
     m_Socket.async_read_some(boost::asio::buffer(m_RevBuff),
@@ -82,7 +82,7 @@ void Connection::HandleRead(const boost::system::error_code& err,
     if (!err)
     {
         HuaweiApiMessage huawei_api_message;
-        if (!huawei_api_message.ParseFromArray(m_RevBuff.data(), (int)bytes_transferred))
+        if (!huawei_api_message.ParseFromArray(m_RevBuff.data(), bytes_transferred))
         {
             Close();
             return;
@@ -152,7 +152,7 @@ huawei::api::ErrorCode Connection::ApplyQoSRequest(
         return ErrorCode::ERROR_CODE_INVALID_MSG;
     }
 
-    const huawei::api::ApplyQoSRequest& apply_qos_request = (huawei::api::ApplyQoSRequest&)(message);
+    const huawei::api::ApplyQosRequest& apply_qos_request = (huawei::api::ApplyQosRequest&)(message);
 
     connection.huawei_api_->AsyncApplyQoSResourceRequest(apply_qos_request.local_ip(), connection.remote_public_ip_);
 

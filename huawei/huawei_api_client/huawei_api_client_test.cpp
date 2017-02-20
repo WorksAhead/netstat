@@ -1,24 +1,24 @@
-#include "ttcpclient.h"
+#include "huawei_api_client.h"
 #include <boost/thread.hpp>
 #include <boost/program_options.hpp>
 
-using namespace ttcp;
+using namespace huawei_api_client;
 namespace po = boost::program_options;
 
-typedef void(*ttcp_client_log_callback_t)(const char*);
+typedef void(*huawei_api_client_log_callback_t)(int error_code, const char* description);
 
-void* ttcp_client_create(const char* address, const char* port, uint32_t notifyInterval);
-void ttcp_client_destory(void* instance);
+void* huawei_api_client_create(const char* address, const char* port);
+void huawei_api_client_destory(void* instance);
 
-void ttcp_client_set_log_callback(void* instance, ttcp_client_log_callback_t log_callback);
-void ttcp_client_set_log_file(void* instance, const char* filename);
+void huawei_api_client_set_log_callback(void* instance, huawei_api_client_log_callback_t log_callback);
+void huawei_api_client_set_log_file(void* instance, const char* filename);
 
-void ttcp_client_start(void* instance);
-void ttcp_client_stop(void* instance);
+void huawei_api_start(void* instance);
+void huawei_api_stop(void* instance);
 
-void log(const char* msg)
+void log(int error_code, const char* description)
 {
-    std::cout << msg << std::endl;
+    std::cout << description << std::endl;
 }
 
 int main(int argc, char* argv[])
@@ -31,7 +31,7 @@ int main(int argc, char* argv[])
     desc.add_options()
         ("help,h", "Produce help message.")
         ("address,i", po::value<std::string>(&address)->default_value("127.0.0.1"), "Destination address, default is 127.0.0.1.")
-        ("port,p", po::value<std::string>(&port)->default_value("5001"), "Destination port, default is 5001.")
+        ("port,p", po::value<std::string>(&port)->default_value("6001"), "Destination port, default is 5001.")
         ;
 
     po::variables_map vm;
@@ -59,20 +59,20 @@ int main(int argc, char* argv[])
     port = vm["port"].as<std::string>();
 
     //
-    void* p = ttcp_client_create(address.c_str(), port.c_str(), 1000);
+    void* p = huawei_api_client_create(address.c_str(), port.c_str());
     if (p)
     {
-        ttcp_client_set_log_callback(p, log);
-        ttcp_client_set_log_file(p, "log.txt");
+        huawei_api_client_set_log_callback(p, log);
+        huawei_api_client_set_log_file(p, "log.txt");
 
         for (int i = 0; i < 10; ++i)
         {
-            ttcp_client_start(p);
+            huawei_api_start(p);
             boost::this_thread::sleep_for(boost::chrono::seconds(30));
-            ttcp_client_stop(p);
+            huawei_api_stop(p);
         }
 
-        ttcp_client_destory(p);
+        huawei_api_client_destory(p);
     }
 
     return 0;

@@ -14,10 +14,11 @@
 /latency_test/build/*.VC.db
 /latency_test/bin
 
-# huawei
-/huawei/build
+# huawei_api_client
+/huawei/huawei_api_client/build
 
 # huawei_api_server
+/huawei/huawei_api_server/build
 /huawei/huawei_api_server/dependencies/curl
 /huawei/huawei_api_server/dependencies/json
 /huawei/huawei_api_server/dependencies/b64.c/build

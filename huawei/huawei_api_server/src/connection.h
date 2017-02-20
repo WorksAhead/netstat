@@ -15,7 +15,7 @@
 
 namespace huawei_api_server
 {
-    #define BUFF_SIZE 8192
+    #define BUFF_SIZE 256
 
     class Connection;
     typedef boost::shared_ptr<Connection> ConnectionPtr;

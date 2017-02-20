@@ -1,8 +1,8 @@
-# Build ttcpclient
+# Build huawei_api_client
 
 cmake_minimum_required(VERSION 3.7 FATAL_ERROR)
 
-project(ttcpclient)
+project(huawei_api_client)
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 
@@ -33,8 +33,18 @@ if(WIN32)
     add_definitions(-D_SCL_SECURE_NO_WARNINGS)
 endif()
 
-add_library(ttcpclient
-            ttcpclient.cpp
-            ttcpclient.h)
+# protobuf
+find_package(Protobuf REQUIRED)
+include_directories(${Protobuf_INCLUDE_DIRS})
 
-target_compile_features(ttcpclient PRIVATE cxx_generalized_initializers)
+# compiled protos
+include_directories(${Protobuf_INCLUDE_DIRS}/../../protos/cpp_out/build)
+
+add_library(huawei_api_client
+            message_handler.h
+            thread_base.cpp
+            thread_base.h
+            huawei_api_client.cpp
+            huawei_api_client.h)
+
+target_compile_features(huawei_api_client PRIVATE cxx_generalized_initializers)
