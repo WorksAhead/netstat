@@ -1,6 +1,7 @@
-#include "huawei_api_client.h"
 #include <boost/thread.hpp>
 #include <boost/program_options.hpp>
+
+#include "huawei_api_client.h"
 
 using namespace huawei_api_client;
 namespace po = boost::program_options;

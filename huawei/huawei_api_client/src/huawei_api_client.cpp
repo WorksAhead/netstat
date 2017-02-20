@@ -70,6 +70,20 @@ boost::signals2::connection HuaweiApiClient::RegisterCallback(
 }
 
 void HuaweiApiClient::Start() {
+    if (has_qos_started)
+    {
+        signal_(-1, "<error> Failed to send ApplyQoSRequest to Huawei Api Server, QoS service has started.");
+        log("<error> Failed to send ApplyQoSRequest to Huawei Api Server, QoS service has started.");
+        return;
+    }
+
+    if (is_apply_qos_pendding || is_remove_qos_pendding)
+    {
+        signal_(-1, "<error> Failed to send ApplyQoSRequest to Huawei Api Server, ApplyQoSRequest/RemoveQoSRequest is pendding.");
+        log("<error> Failed to send ApplyQoSRequest to Huawei Api Server, ApplyQoSRequest/RemoveQoSRequest is pendding.");
+        return;
+    }
+
     if (socket_.is_open()) {
         Close();
     }
@@ -78,20 +92,35 @@ void HuaweiApiClient::Start() {
 }
 
 void HuaweiApiClient::Stop() {
-    DoRemoveQosRequest();
+    if (!has_qos_started)
+    {
+        signal_(-1, "<error> Failed to send RemoveQoSRequest to Huawei Api Server, QoS service has already stoped.");
+        log("<error> Failed to send RemoveQoSRequest to Huawei Api Server, QoS service has already stoped.");
+        return;
+    }
 
-    qos_request_timer_.reset(new boost::asio::deadline_timer(io_service_, boost::posix_time::seconds(qos_request_timeout_)));
-    qos_request_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleQosTimeout, this));
+    if (is_apply_qos_pendding || is_remove_qos_pendding)
+    {
+        signal_(-1, "<error> Failed to send RemoveQoSRequest to Huawei Api Server, ApplyQoSRequest/RemoveQoSRequest is pendding.");
+        log("<error> Failed to send RemoveQoSRequest to Huawei Api Server, ApplyQoSRequest/RemoveQoSRequest is pendding.");
+        return;
+    }
+
+    if (!socket_.is_open()) {
+        signal_(-1, "<error> Failed to send RemoveQoSRequest to Huawei Api Server, connection has broken.");
+        log("<error> Failed to send RemoveQoSRequest to Huawei Api Server, connection has broken.");
+        return;
+    }
+
+    DoRemoveQosRequest();
 }
 
-void HuaweiApiClient::Run()
-{
+void HuaweiApiClient::Run() {
     boost::asio::io_service::work work(io_service_);
     io_service_.run();
 }
 
-void HuaweiApiClient::RegisterResponseHandler()
-{
+void HuaweiApiClient::RegisterResponseHandler() {
     response_handler_.RegisterHandler(HuaweiApiMessage::MessageTypeCase::kApplyQosRequest, boost::bind(&HuaweiApiClient::ApplyQoSResponse, this, _1));
     response_handler_.RegisterHandler(HuaweiApiMessage::MessageTypeCase::kRemoveQosRequest, boost::bind(&HuaweiApiClient::RemoveQoSResponse, this, _1));
     response_handler_.RegisterHandler(HuaweiApiMessage::MessageTypeCase::kHeartbeatRequest, boost::bind(&HuaweiApiClient::ReplyHeartbeatResponse, this, _1));
@@ -128,6 +157,9 @@ void HuaweiApiClient::DoApplyQosRequest() {
         boost::asio::buffer(send_buff_.data(), api_message.ByteSize()),
         boost::bind(&HuaweiApiClient::HandleWrite, this,
             boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+
+    qos_request_timer_.reset(new boost::asio::deadline_timer(io_service_, boost::posix_time::seconds(qos_request_timeout_)));
+    qos_request_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleQosTimeout, this));
 }
 
 void HuaweiApiClient::DoRemoveQosRequest() {
@@ -145,6 +177,30 @@ void HuaweiApiClient::DoRemoveQosRequest() {
         boost::asio::buffer(send_buff_),
         boost::bind(&HuaweiApiClient::HandleWrite, this,
             boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+
+    qos_request_timer_.reset(new boost::asio::deadline_timer(io_service_, boost::posix_time::seconds(qos_request_timeout_)));
+    qos_request_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleQosTimeout, this));
+}
+
+void HuaweiApiClient::DoHeartbeat()
+{
+    is_heartbeat_pendding = true;
+
+    HeartbeatRequest* heartbeat_request = new HeartbeatRequest;
+
+    HuaweiApiMessage api_message;
+    api_message.set_allocated_heartbeat_request(heartbeat_request);
+
+    std::fill(std::begin(send_buff_), std::end(send_buff_), 0);
+    api_message.SerializeToArray(send_buff_.data(), (int)send_buff_.size());
+
+    boost::asio::async_write(socket_,
+        boost::asio::buffer(send_buff_),
+        boost::bind(&HuaweiApiClient::HandleWrite, this,
+            boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+
+    heartbeat_timer_->expires_at(heartbeat_timer_->expires_at() + boost::posix_time::millisec(heartbeat_interval_));
+    heartbeat_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleHeartbeat, this));
 }
 
 void HuaweiApiClient::HandleConnect(const boost::system::error_code& error)
@@ -152,9 +208,6 @@ void HuaweiApiClient::HandleConnect(const boost::system::error_code& error)
     if (!error)
     {
         DoApplyQosRequest();
-
-        qos_request_timer_.reset(new boost::asio::deadline_timer(io_service_, boost::posix_time::seconds(qos_request_timeout_)));
-        qos_request_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleQosTimeout, this));
     }
     else
     {
@@ -202,10 +255,14 @@ void HuaweiApiClient::HandleRead(const boost::system::error_code& error, std::si
         {
             handler(sub_message);
         }
+        else
+        {
+            // TODO: 
+        }
     }
     else
     {
-        if (is_apply_qos_pendding || is_remove_qos_pendding || is_heartbeat_pendding)
+        if (is_apply_qos_pendding || is_remove_qos_pendding)
         {
             signal_(-1, "<error> Failed to read data to Huawei Api Server.");
             log("<error> Failed to read data to Huawei Api Server.");
@@ -216,11 +273,17 @@ void HuaweiApiClient::HandleRead(const boost::system::error_code& error, std::si
 void HuaweiApiClient::HandleQosTimeout() {
     if (is_apply_qos_pendding) {
         is_apply_qos_pendding = false;
-        signal_(-1, "Apply QoS request timeout.");
+        signal_(-1, "<error> ApplyQoSRequest timeout.");
+        log("<error> ApplyQoSRequest timeout.");
     }
     else if (is_remove_qos_pendding) {
         is_remove_qos_pendding = false;
-        signal_(-1, "Remove QoS request timeout.");
+        signal_(-1, "<error> RemoveQoSRequest timeout.");
+        log("<error> RemoveQoSRequest timeout.");
+    }
+    else
+    {
+        // TODO: 
     }
 }
 
@@ -229,22 +292,88 @@ void HuaweiApiClient::HandleHeartbeat()
     // Reset timer again.
     if (has_qos_started)
     {
-        heartbeat_timer_->expires_at(heartbeat_timer_->expires_at() + boost::posix_time::millisec(heartbeat_interval_));
-        heartbeat_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleHeartbeat, this));
+        // Previous heartbeat did not arrive.
+        if (is_heartbeat_pendding)
+        {
+            signal_(-1, "<error> Failed to receive heartbeat response from Huawei Api Server.");
+            log("<error> Failed to receive heartbeat response from Huawei Api Server.");
+        }
+
+        DoHeartbeat();
     }
 }
 
 huawei::api::ErrorCode HuaweiApiClient::ApplyQoSResponse(const google::protobuf::Message& message) {
+    if (!is_apply_qos_pendding)
+    {
+        return ErrorCode::ERROR_CODE_UNKNOWN;
+    }
 
+    if (message.GetTypeName() != "huawei.api.ApplyQosResponse")
+    {
+        return ErrorCode::ERROR_CODE_INVALID_MSG;
+    }
 
-    return huawei::api::ErrorCode::ERROR_CODE_NONE;
+    is_apply_qos_pendding = false;
+    qos_request_timer_->cancel();
+
+    const huawei::api::ApplyQosResponse& apply_qos_response = (huawei::api::ApplyQosResponse&)(message);
+    if (apply_qos_response.error_code() == huawei::api::ErrorCode::ERROR_CODE_NONE)
+    {
+        signal_(0, "ApplyQoSRequest has successed.");
+        log("ApplyQoSRequest has successed.");
+
+        has_qos_started = true;
+
+        heartbeat_timer_->expires_at(heartbeat_timer_->expires_at() + boost::posix_time::millisec(heartbeat_interval_));
+        heartbeat_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleHeartbeat, this));
+    }
+
+    return apply_qos_response.error_code();
 }
 
 huawei::api::ErrorCode HuaweiApiClient::RemoveQoSResponse(const google::protobuf::Message& message) {
-    return huawei::api::ErrorCode::ERROR_CODE_NONE;
+    if (!is_remove_qos_pendding)
+    {
+        return ErrorCode::ERROR_CODE_UNKNOWN;
+    }
+
+    if (message.GetTypeName() != "huawei.api.RemoveQosResponse")
+    {
+        return ErrorCode::ERROR_CODE_INVALID_MSG;
+    }
+
+    is_remove_qos_pendding = false;
+    qos_request_timer_->cancel();
+
+    const huawei::api::RemoveQosResponse& remove_qos_response = (huawei::api::RemoveQosResponse&)(message);
+    if (remove_qos_response.error_code() == huawei::api::ErrorCode::ERROR_CODE_NONE)
+    {
+        signal_(0, "RemoveQoSRequest has successed.");
+        log("RemoveQoSRequest has successed.");
+
+        has_qos_started = false;
+
+        is_heartbeat_pendding = false;
+        heartbeat_timer_->cancel();
+    }
+
+    return remove_qos_response.error_code();
 }
 
 huawei::api::ErrorCode HuaweiApiClient::ReplyHeartbeatResponse(const google::protobuf::Message& message) {
+    if (!is_heartbeat_pendding)
+    {
+        return ErrorCode::ERROR_CODE_UNKNOWN;
+    }
+
+    if (message.GetTypeName() != "huawei.api.HeartbeatResponse")
+    {
+        return ErrorCode::ERROR_CODE_INVALID_MSG;
+    }
+
+    is_heartbeat_pendding = false;
+
     return huawei::api::ErrorCode::ERROR_CODE_NONE;
 }
 

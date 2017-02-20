@@ -1,12 +1,9 @@
 #ifndef HUAWEI_API_CLIENT_HUAWEI_API_CLIENT_H_
 #define HUAWEI_API_CLIENT_HUAWEI_API_CLIENT_H_
 
-#include <string>
 #include <array>
-#include <fstream>
 
 #include <boost/asio.hpp>
-#include <boost/chrono.hpp>
 #include <boost/signals2.hpp>
 #include <boost/noncopyable.hpp>
 

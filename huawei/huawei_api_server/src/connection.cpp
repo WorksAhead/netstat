@@ -146,7 +146,7 @@ huawei::api::ErrorCode Connection::ApplyQoSRequest(
     Connection& connection, 
     const google::protobuf::Message& message) {
 
-    if (message.GetTypeName() != "huawei.api.ApplyQoSRequest")
+    if (message.GetTypeName() != "huawei.api.ApplyQosRequest")
     {
         std::cerr << "Message type is incorrect." << std::endl;
         return ErrorCode::ERROR_CODE_INVALID_MSG;
