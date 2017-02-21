@@ -3,7 +3,6 @@
 
 #include <string>
 #include <boost/signals2.hpp>
-#include <boost/thread.hpp>
 #include <curl/curl.h>
 
 namespace huawei_api_server
@@ -13,31 +12,43 @@ namespace huawei_api_server
     class HuaweiAPI
     {
     public:
-        typedef boost::signals2::signal<void(int, const std::string&)> SignalType;
-
-    public:
         HuaweiAPI(const std::string& realm, const std::string& username, const std::string& password, const std::string& nonce);
         ~HuaweiAPI();
 
-        // Register callback functions.
-        boost::signals2::connection RegisterCallback(const SignalType::slot_type& subscriber);
-
         // Apply QoSResourceRequest.
-        void AsyncApplyQoSResourceRequest(const std::string& local_ip, const std::string& public_ip);
         void ApplyQoSResourceRequest(const std::string& local_ip, const std::string& public_ip);
 
         // Stop QoSResourceRequest.
-        void AsyncRemoveQoSResourceRequest();
         void RemoveQoSResourceRequest();
 
-        const SignalType& signal()
-        {
-            return signal_;
-        }
-
+        // correlation_id accessor
         void set_correlation_id(const std::string& correlation_id)
         {
             correlation_id_ = correlation_id;
+        }
+        std::string correlation_id() const
+        {
+            return correlation_id_;
+        }
+
+        // Result code
+        void set_error_code(int error_code)
+        {
+            error_code_ = error_code;
+        }
+        int error_code() const
+        {
+            return error_code_;
+        }
+
+        // Result description
+        void set_description(const std::string& desc)
+        {
+            description_ = desc;
+        }
+        std::string description() const
+        {
+            return description_;
         }
 
     private:
@@ -56,18 +67,17 @@ namespace huawei_api_server
         struct curl_slist* ConstructRemoveQoSResourceRequestHeaders();
 
     private:
-        std::string m_Realm;
-        std::string m_Username;
-        std::string m_Password;
-        std::string m_Nonce;
+        std::string realm_;
+        std::string username_;
+        std::string password_;
+        std::string nonce_;
 
         // CorrelationId. uniquely specify a QoS request.
         std::string correlation_id_;
 
-        // Callback signal object.
-        SignalType signal_;
-
-        boost::shared_ptr<boost::thread> m_Thread;
+        // Result
+        int error_code_;
+        std::string description_;
     };
 }
 

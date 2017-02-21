@@ -32,7 +32,12 @@ void Connection::RegisterMessageHandler()
 Connection::Connection(boost::asio::io_service& IOService)
     : m_Socket(IOService)
 {
+    const char* realm = "ChangyouRealm";
+    const char* username = "ChangyouDevice";
+    const char* password = "Changyou@123";
+    const char* nonce = "eUZZZXpSczFycXJCNVhCWU1mS3ZScldOYg==";
 
+    huawei_api_ = new HuaweiAPI(realm, username, password, nonce);
 }
 
 Connection::~Connection()
@@ -47,31 +52,17 @@ boost::asio::ip::tcp::socket& Connection::GetSocket()
 
 void Connection::Start()
 {
-    /*
     // Save address and port.
     remote_public_ip_ = m_Socket.remote_endpoint().address().to_string();
 
     // Set no delay flag.
     boost::system::error_code ignored_ec;
     m_Socket.set_option(boost::asio::ip::tcp::no_delay(true), ignored_ec);
-    if (ignored_ec)
-    {
-        SERVER_LOGGER(warning) << "Failed to set no_delay of socket [" << remote_public_ip_ << "], because of " << ignored_ec << ".";
-    }
-
-    const char* realm = "ChangyouRealm";
-    const char* username = "ChangyouDevice";
-    const char* password = "Changyou@123";
-    const char* nonce = "eUZZZXpSczFycXJCNVhCWU1mS3ZScldOYg==";
-
-    huawei_api_ = new HuaweiAPI(realm, username, password, nonce);
-    huawei_api_->RegisterCallback(boost::bind(&Connection::HuaweiApiCallback, this, _1, _2));
-    */
-
-    std::fill(std::begin(m_RevBuff), std::end(m_RevBuff), 0);
 
     // OK, it's time to read data.
-    m_Socket.async_read_some(boost::asio::buffer(m_RevBuff),
+    std::fill(std::begin(recv_buff_), std::end(recv_buff_), 0);
+
+    m_Socket.async_read_some(boost::asio::buffer(recv_buff_),
         boost::bind(&Connection::HandleRead, shared_from_this(),
             boost::asio::placeholders::error,
             boost::asio::placeholders::bytes_transferred));
@@ -82,7 +73,7 @@ void Connection::HandleRead(const boost::system::error_code& err,
     if (!err)
     {
         HuaweiApiMessage huawei_api_message;
-        if (!huawei_api_message.ParseFromArray(m_RevBuff.data(), bytes_transferred))
+        if (!huawei_api_message.ParseFromArray(recv_buff_.data(), (int)bytes_transferred))
         {
             Close();
             return;
@@ -98,28 +89,28 @@ void Connection::HandleRead(const boost::system::error_code& err,
         {
             handler(*this, sub_message);
         }
-
-        /*
-        std::string local_ip(m_RevBuff.begin(), m_RevBuff.end());
-        if (remote_local_ip_ != local_ip)
-        {
-            remote_local_ip_ = local_ip;
-            huawei_api_->AsyncApplyQoSResourceRequest(remote_local_ip_, remote_public_ip_);
-        }
-
-        m_RevBuff = { '\n' };
-
-        // Read again and again...
-        m_Socket.async_read_some(boost::asio::buffer(m_RevBuff),
-            boost::bind(&Connection::HandleRead, shared_from_this(),
-                boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred));
-        */
     }
     else
     {
         // Received EOF, close connection.
         // TODO: remove qos request
+        Close();
+    }
+}
+
+void Connection::HandleWrite(const boost::system::error_code& error, std::size_t bytesTransferred)
+{
+    if (!error)
+    {
+        // Ready to read response.
+        boost::asio::async_read(m_Socket,
+            boost::asio::buffer(recv_buff_),
+            boost::bind(&Connection::HandleRead, this,
+                boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+    }
+    else
+    {
+        // Write data failed, close and reconnect the server.
         Close();
     }
 }
@@ -141,6 +132,24 @@ Connection::Close()
     s_ConnectionList.remove(shared_from_this());
 }
 
+void Connection::DoApplyQoSResponse(int error_code, const std::string& description)
+{
+    ApplyQosResponse* qos_response = new ApplyQosResponse;
+    qos_response->set_error_code(ErrorCode::ERROR_CODE_NONE);
+    qos_response->set_reason(description);
+
+    HuaweiApiMessage api_message;
+    api_message.set_allocated_apply_qos_response(qos_response);
+
+    std::fill(std::begin(send_buff_), std::end(send_buff_), 0);
+    api_message.SerializeToArray(send_buff_.data(), api_message.ByteSize());
+
+    boost::asio::async_write(m_Socket,
+        boost::asio::buffer(send_buff_.data(), api_message.ByteSize()),
+        boost::bind(&Connection::HandleWrite, this,
+            boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+}
+
 //
 huawei::api::ErrorCode Connection::ApplyQoSRequest(
     Connection& connection, 
@@ -154,7 +163,10 @@ huawei::api::ErrorCode Connection::ApplyQoSRequest(
 
     const huawei::api::ApplyQosRequest& apply_qos_request = (huawei::api::ApplyQosRequest&)(message);
 
-    connection.huawei_api_->AsyncApplyQoSResourceRequest(apply_qos_request.local_ip(), connection.remote_public_ip_);
+    connection.huawei_api_->ApplyQoSResourceRequest(apply_qos_request.local_ip(), connection.remote_public_ip_);
+
+    connection.DoApplyQoSResponse(connection.huawei_api_->error_code(), connection.huawei_api_->description());
+
 
     return huawei::api::ErrorCode::ERROR_CODE_NONE; 
 }

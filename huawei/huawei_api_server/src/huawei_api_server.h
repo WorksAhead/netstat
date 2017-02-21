@@ -1,10 +1,11 @@
 #ifndef HUAWEI_API_SERVER_HUAWEI_API_SERVER_H_
 #define HUAWEI_API_SERVER_HUAWEI_API_SERVER_H_
 
-#include "io_service_pool.h"
-#include "connection.h"
 #include <boost/asio.hpp>
 #include <boost/noncopyable.hpp>
+
+#include "io_service_pool.h"
+#include "connection.h"
 
 namespace huawei_api_server
 {
@@ -13,7 +14,7 @@ namespace huawei_api_server
     public:
         HuaweiApiServer(const std::string& address,
                         const std::string& port,
-                          std::size_t pool_size);
+                        std::size_t pool_size);
         ~HuaweiApiServer();
 
         // Run the server's io_service loop.

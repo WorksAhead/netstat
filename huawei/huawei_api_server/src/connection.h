@@ -1,5 +1,5 @@
-#ifndef __NETSTAT_TTCP_CONNECTION__
-#define __NETSTAT_TTCP_CONNECTION__
+#ifndef HUAWEI_API_SERVER_CONNECTION_H_
+#define HUAWEI_API_SERVER_CONNECTION_H_
 
 #include <array>
 #include <boost/asio.hpp>
@@ -15,7 +15,7 @@
 
 namespace huawei_api_server
 {
-    #define BUFF_SIZE 256
+    #define BUFFER_SIZE 256
 
     class Connection;
     typedef boost::shared_ptr<Connection> ConnectionPtr;
@@ -46,9 +46,16 @@ namespace huawei_api_server
         HuaweiAPI* huawei_api_;
         std::string remote_public_ip_;
 
+        // Send & Recv buffer.
+        std::array<char, BUFFER_SIZE> recv_buff_;
+        std::array<char, BUFFER_SIZE> send_buff_;
+
     private:
         // Handle completion of a read operation.
         void HandleRead(const boost::system::error_code& err, std::size_t bytes_transferred);
+        void HandleWrite(const boost::system::error_code& error, std::size_t bytes_transferred);
+
+        void DoApplyQoSResponse(int error_code, const std::string& description);
 
         //
         static huawei::api::ErrorCode ApplyQoSRequest(Connection& connection, const google::protobuf::Message& message);
@@ -63,10 +70,6 @@ namespace huawei_api_server
         
         std::string remote_local_ip_;
 
-        std::array<char, BUFF_SIZE> m_RevBuff;
-
-        
-
         // Global activity connections.
         typedef boost::container::slist<ConnectionPtr> ConnectionList;
         static ConnectionList s_ConnectionList;
@@ -76,4 +79,4 @@ namespace huawei_api_server
     };
 }
 
-#endif // __NETSTAT_TTCP_CONNECTION__
+#endif // HUAWEI_API_SERVER_CONNECTION_H_

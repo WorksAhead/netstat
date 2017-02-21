@@ -1,8 +1,8 @@
-#ifndef __NETSTAT_TTCP_IOSERVICEPOOL__
-#define __NETSTAT_TTCP_IOSERVICEPOOL__
+#ifndef HUAWEI_API_SERVER_IO_SERVICE_POOL_H_
+#define HUAWEI_API_SERVER_IO_SERVICE_POOL_H_
 
-#include <boost/asio.hpp>
 #include <vector>
+#include <boost/asio.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
 
@@ -34,7 +34,6 @@ namespace huawei_api_server
         // The next io_service to use for a connection.
         std::size_t m_NextIOService;
     };
-
 }
 
-#endif // __NETSTAT_TTCP_IOSERVICEPOOL__
+#endif // HUAWEI_API_SERVER_IO_SERVICE_POOL_H_

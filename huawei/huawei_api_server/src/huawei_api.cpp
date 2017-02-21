@@ -24,26 +24,24 @@ static size_t RequestCallback(char *ptr, size_t size, size_t nmemb, void *userda
 
     int resultCode = response.value("ResultCode", 0);
     std::string resultMsg = response.value("ResultMessage", "Success");
-    if (resultCode != 0)
-    {
-        resultMsg = "<error> " + resultMsg;
-    }
 
     HuaweiAPI* instance = (HuaweiAPI*)userdata;
+
     // Update CorrelationId.
     instance->set_correlation_id(response.value("CorrelationId", "0"));
-    // Do Callback.
-    instance->signal()(resultCode, resultMsg.c_str());
+    // Update result.
+    instance->set_error_code(resultCode);
+    instance->set_description(resultMsg);
 
     size_t realsize = size * nmemb;
     return realsize;
 }
 
 HuaweiAPI::HuaweiAPI(const std::string& realm, const std::string& username, const std::string& password, const std::string& nonce)
-    : m_Realm{realm}
-    , m_Username{username}
-    , m_Password{password}
-    , m_Nonce{nonce}
+    : realm_{realm}
+    , username_{username}
+    , password_{password}
+    , nonce_{nonce}
 {
     // Init curl
     curl_global_init(CURL_GLOBAL_ALL);
@@ -52,19 +50,6 @@ HuaweiAPI::HuaweiAPI(const std::string& realm, const std::string& username, cons
 HuaweiAPI::~HuaweiAPI()
 {
     curl_global_cleanup();
-
-    signal_.disconnect_all_slots();
-
-    if (m_Thread != nullptr)
-    {
-        m_Thread->join();
-    }
-}
-
-boost::signals2::connection
-HuaweiAPI::RegisterCallback(const SignalType::slot_type& subscriber)
-{
-    return signal_.connect(subscriber);
 }
 
 void
@@ -95,17 +80,17 @@ HuaweiAPI::AddAuthorizationHeaders(struct curl_slist** headerList)
 
     // Get sha-256 value.
     unsigned char sha256Result[SHA256_DIGEST_SIZE];
-    std::string clearPwd = m_Nonce + timestamp + m_Password;
+    std::string clearPwd = nonce_ + timestamp + password_;
     Encrypt((unsigned char*)clearPwd.c_str(), (unsigned int)clearPwd.length(), sha256Result);
 
     // Get base64 result.
     char* base64Result = b64_encode(sha256Result, SHA256_DIGEST_SIZE);
 
     // Construct wsse.
-    std::string wsse = boost::str(boost::format("X-WSSE: UsernameToken Username=\"%1%\", PasswordDigest=\"%2%\", Nonce=\"%3%\", Timestamp=\"%4%\"") % m_Username % base64Result % m_Nonce % timestamp);
+    std::string wsse = boost::str(boost::format("X-WSSE: UsernameToken Username=\"%1%\", PasswordDigest=\"%2%\", Nonce=\"%3%\", Timestamp=\"%4%\"") % username_ % base64Result % nonce_ % timestamp);
 
     // Construct author.
-    std::string author = boost::str(boost::format("Authorization: WSSE realm=\"%1%\", profile=\"UsernameToken\"") % m_Realm);
+    std::string author = boost::str(boost::format("Authorization: WSSE realm=\"%1%\", profile=\"UsernameToken\"") % realm_);
 
     *headerList = curl_slist_append(*headerList, author.c_str());
     *headerList = curl_slist_append(*headerList, wsse.c_str());
@@ -178,16 +163,6 @@ HuaweiAPI::ConstructApplyQoSResourceRequestBody(const std::string& local_ip, con
 }
 
 void
-HuaweiAPI::AsyncApplyQoSResourceRequest(const std::string& local_ip, const std::string& public_ip)
-{
-    if (m_Thread != nullptr)
-    {
-        m_Thread->join();
-    }
-    m_Thread.reset(new boost::thread(&HuaweiAPI::ApplyQoSResourceRequest, this, local_ip, public_ip));
-}
-
-void
 HuaweiAPI::ApplyQoSResourceRequest(const std::string& local_ip, const std::string& public_ip)
 {
     CURL* curl_handle = curl_easy_init();
@@ -217,9 +192,8 @@ HuaweiAPI::ApplyQoSResourceRequest(const std::string& local_ip, const std::strin
         /* check for errors */
         if (res != CURLE_OK)
         {
-            std::string error_msg = "<error> ";
-            error_msg += curl_easy_strerror(res);
-            signal_(res, error_msg.c_str());
+            error_code_ = (int)res;
+            description_ = curl_easy_strerror(res);
         }
 
         // Release handles.
@@ -228,7 +202,8 @@ HuaweiAPI::ApplyQoSResourceRequest(const std::string& local_ip, const std::strin
     }
     else
     {
-        signal_(-1, "<error> curl_easy_init failed.");
+        error_code_ = -1;
+        description_ = "curl_easy_init failed.";
     }
 }
 
@@ -242,16 +217,6 @@ HuaweiAPI::ConstructRemoveQoSResourceRequestHeaders()
     headers = curl_slist_append(headers, "Expect:");
 
     return headers;
-}
-
-void
-HuaweiAPI::AsyncRemoveQoSResourceRequest()
-{
-    if (m_Thread != nullptr)
-    {
-        m_Thread->join();
-    }
-    m_Thread.reset(new boost::thread(&HuaweiAPI::RemoveQoSResourceRequest, this));
 }
 
 void
@@ -279,23 +244,19 @@ HuaweiAPI::RemoveQoSResourceRequest()
         /* check for errors */
         if (res != CURLE_OK)
         {
-            std::string error_msg = "<error> ";
-            error_msg += curl_easy_strerror(res);
-            signal_(res, error_msg.c_str());
+            error_code_ = (int)res;
+            description_ = curl_easy_strerror(res);
         }
         else
         {
-            long response_code;
-            const char* error_msg = "<error> Unknown Error";
+            description_ = "Unknown Error";
 
-            curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
+            curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &error_code_);
 
-            if (response_code == 204)
+            if (error_code_ == 204)
             {
-                error_msg = "No Content";
+                description_ = "No Content";
             }
-
-            signal_(response_code, error_msg);
         }
 
         // Release handles.
@@ -304,6 +265,7 @@ HuaweiAPI::RemoveQoSResourceRequest()
     }
     else
     {
-        signal_(-1, "<error> curl_easy_init failed.");
+        error_code_ = -1;
+        description_ = "curl_easy_init failed.";
     }
 }

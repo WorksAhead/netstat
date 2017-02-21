@@ -3,6 +3,7 @@
 #include <boost/thread.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
+
 #include "logger.h"
 #include "huawei_api_server.h"
 
@@ -117,8 +118,8 @@ int main(int argc, char* argv[])
     // Get command line arguments.
     std::string address;
     std::string port;
-    int threadNum;
-    bool isDaemonize = false;
+    int thread_num;
+    bool is_daemonize = false;
 
     po::options_description desc("Allowed options");
     desc.add_options()
@@ -126,7 +127,7 @@ int main(int argc, char* argv[])
         ("daemon,d", "Running as a daemon process.")
         ("address,i", po::value<std::string>(&address)->default_value("0.0.0.0"), "Bind address, default is 0.0.0.0.")
         ("port,p", po::value<std::string>(&port)->default_value("6001"), "Listen port, default is 6001.")
-        ("thread,n", po::value<int>(&threadNum)->default_value(boost::thread::hardware_concurrency()), "Worker thread number, default is number of CPUs or cores or hyperthreading units.")
+        ("thread,n", po::value<int>(&thread_num)->default_value(boost::thread::hardware_concurrency()), "Worker thread number, default is number of CPUs or cores or hyperthreading units.")
         ;
 
     po::variables_map vm;
@@ -153,13 +154,13 @@ int main(int argc, char* argv[])
 #if defined (__linux__) || defined (__FreeBSD__)
     if (vm.count("daemon"))
     {
-        isDaemonize = true;
+        is_daemonize = true;
     }
 #endif
 
     address = vm["address"].as<std::string>();
     port = vm["port"].as<std::string>();
-    threadNum = vm["thread"].as<int>();
+    thread_num = vm["thread"].as<int>();
 
     // Init log system.
     logging::formatter formatter =
@@ -172,20 +173,20 @@ int main(int argc, char* argv[])
 
     logging::add_common_attributes();
 
-    if (isDaemonize)
+    if (is_daemonize)
     {
-        auto fileSink = logging::add_file_log(
+        auto file_sink = logging::add_file_log(
             keywords::file_name = log_file_path,
             keywords::auto_flush = true
         );
-        fileSink->set_formatter(formatter);
-        logging::core::get()->add_sink(fileSink);
+        file_sink->set_formatter(formatter);
+        logging::core::get()->add_sink(file_sink);
     }
     else
     {
-        auto consoleSink = logging::add_console_log();
-        consoleSink->set_formatter(formatter);
-        logging::core::get()->add_sink(consoleSink);
+        auto console_sink = logging::add_console_log();
+        console_sink->set_formatter(formatter);
+        logging::core::get()->add_sink(console_sink);
     }
 
 #if defined (NDEBUG)
@@ -198,11 +199,11 @@ int main(int argc, char* argv[])
     // Initialise the server before becoming a daemon. If the process is
     // started from a shell, this means any errors will be reported back to the
     // user.
-    HuaweiApiServer server(address, port, threadNum);
+    HuaweiApiServer server(address, port, thread_num);
 
     // Run as daemon or not.
 #if defined (__linux__) || defined (__FreeBSD__)
-    if (isDaemonize)
+    if (is_daemonize)
     {
         std::cout << "Process is running as a daemon." << std::endl;
         Daemonize(log_file_path.c_str());

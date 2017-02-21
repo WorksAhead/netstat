@@ -1,4 +1,5 @@
 #include "io_service_pool.h"
+
 #include <stdexcept>
 #include <boost/thread/thread.hpp>
 #include <boost/bind.hpp>
