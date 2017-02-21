@@ -51,10 +51,12 @@ HuaweiApiClient::HuaweiApiClient(const std::string& address,
     : addr_{address}
     , port_{port}
     , socket_{io_service_} {
-
+    RegisterResponseHandler();
 }
 
 HuaweiApiClient::~HuaweiApiClient() {
+    io_service_.stop();
+
     qos_state_ = kStoppedQosService;
 
     StopQosRequestTimer();
@@ -65,8 +67,6 @@ HuaweiApiClient::~HuaweiApiClient() {
     }
 
     signal_.disconnect_all_slots();
-
-    io_service_.stop();
 }
 
 boost::signals2::connection HuaweiApiClient::RegisterCallback(
@@ -101,14 +101,14 @@ void HuaweiApiClient::Start() {
 void HuaweiApiClient::Stop() {
     if (qos_state_ != kUnderQosService)
     {
-        signal_(-1, "<error> Failed to Start HuaweiApiClient. qos_state_ != kUnderQosService.");
+        signal_(-1, "<error> Failed to Stop HuaweiApiClient. qos_state_ != kUnderQosService.");
         log("<error> Failed to Start HuaweiApiClient. qos_state_ != kUnderQosService.");
         return;
     }
 
     if (connection_state_ != kConnected)
     {
-        signal_(-1, "<error> Failed to Start HuaweiApiClient. connection_state_ != kConnected.");
+        signal_(-1, "<error> Failed to Stop HuaweiApiClient. connection_state_ != kConnected.");
         log("<error> Failed to Start HuaweiApiClient. connection_state_ != kConnected.");
         return;
     }
@@ -128,12 +128,15 @@ void HuaweiApiClient::Run() {
 }
 
 void HuaweiApiClient::RegisterResponseHandler() {
-    response_handler_.RegisterHandler(HuaweiApiMessage::MessageTypeCase::kApplyQosRequest, boost::bind(&HuaweiApiClient::ApplyQoSResponse, this, _1));
-    response_handler_.RegisterHandler(HuaweiApiMessage::MessageTypeCase::kRemoveQosRequest, boost::bind(&HuaweiApiClient::RemoveQoSResponse, this, _1));
-    response_handler_.RegisterHandler(HuaweiApiMessage::MessageTypeCase::kHeartbeatRequest, boost::bind(&HuaweiApiClient::ReplyHeartbeatResponse, this, _1));
+    response_handler_.RegisterHandler(HuaweiApiMessage::MessageTypeCase::kApplyQosResponse, boost::bind(&HuaweiApiClient::ApplyQoSResponse, this, _1));
+    response_handler_.RegisterHandler(HuaweiApiMessage::MessageTypeCase::kRemoveQosResponse, boost::bind(&HuaweiApiClient::RemoveQoSResponse, this, _1));
+    response_handler_.RegisterHandler(HuaweiApiMessage::MessageTypeCase::kHeartbeatResponse, boost::bind(&HuaweiApiClient::ReplyHeartbeatResponse, this, _1));
 }
 
 void HuaweiApiClient::Connect() {
+    signal_(0, "Connecting Huawei Api Server...");
+    log("Connecting Huawei Api Server...");
+
     connection_state_ = kConnecting;
 
     tcp::resolver resolver(io_service_);
@@ -262,6 +265,9 @@ void HuaweiApiClient::HandleConnect(const boost::system::error_code& error)
         connection_state_ = kDisconnected;
         qos_state_ = kStoppedQosService;
 
+        StopQosRequestTimer();
+        StopHeartbeat();
+
         signal_(-1, "<error> Failed to connect to Huawei Api Server.");
         log("<error> Failed to connect to Huawei Api Server.");
     }
@@ -272,9 +278,8 @@ void HuaweiApiClient::HandleWrite(const boost::system::error_code& error, std::s
     if (!error)
     {
         // Ready to read response.
-        boost::asio::async_read(socket_,
-            boost::asio::buffer(recv_buff_),
-            boost::bind(&HuaweiApiClient::HandleRead, this,
+        socket_.async_receive(boost::asio::buffer(recv_buff_),
+            boost::bind(&HuaweiApiClient::HandleRead, this, 
                 boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
     }
     else
