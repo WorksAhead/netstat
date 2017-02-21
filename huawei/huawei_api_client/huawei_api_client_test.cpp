@@ -14,8 +14,8 @@ void huawei_api_client_destory(void* instance);
 void huawei_api_client_set_log_callback(void* instance, huawei_api_client_log_callback_t log_callback);
 void huawei_api_client_set_log_file(void* instance, const char* filename);
 
-void huawei_api_start(void* instance);
-void huawei_api_stop(void* instance);
+void huawei_api_client_start(void* instance);
+void huawei_api_client_stop(void* instance);
 
 void log(int error_code, const char* description)
 {
@@ -68,9 +68,9 @@ int main(int argc, char* argv[])
 
         for (int i = 0; i < 10; ++i)
         {
-            huawei_api_start(p);
+            huawei_api_client_start(p);
             boost::this_thread::sleep_for(boost::chrono::seconds(5));
-            huawei_api_stop(p);
+            huawei_api_client_stop(p);
         }
 
         huawei_api_client_destory(p);

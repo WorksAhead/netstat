@@ -20,8 +20,8 @@ void huawei_api_client_destory(void* instance);
 void huawei_api_client_set_log_callback(void* instance, huawei_api_client_log_callback_t log_callback);
 void huawei_api_client_set_log_file(void* instance, const char* filename);
 
-void huawei_api_start(void* instance);
-void huawei_api_stop(void* instance);
+void huawei_api_client_start(void* instance);
+void huawei_api_client_stop(void* instance);
 // end
 
 // Jiang's
@@ -174,10 +174,10 @@ void HuaweiApiClient::DoRemoveQosRequest() {
     api_message.set_allocated_remove_qos_request(qos_request);
 
     std::fill(std::begin(send_buff_), std::end(send_buff_), 0);
-    api_message.SerializeToArray(send_buff_.data(), (int)send_buff_.size());
+    api_message.SerializeToArray(send_buff_.data(), api_message.ByteSize());
 
     boost::asio::async_write(socket_,
-        boost::asio::buffer(send_buff_),
+        boost::asio::buffer(send_buff_.data(), api_message.ByteSize()),
         boost::bind(&HuaweiApiClient::HandleWrite, this,
             boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
 }
@@ -192,10 +192,10 @@ void HuaweiApiClient::StartHeartbeat()
     api_message.set_allocated_heartbeat_request(heartbeat_request);
 
     std::fill(std::begin(send_buff_), std::end(send_buff_), 0);
-    api_message.SerializeToArray(send_buff_.data(), (int)send_buff_.size());
+    api_message.SerializeToArray(send_buff_.data(), api_message.ByteSize());
 
     boost::asio::async_write(socket_,
-        boost::asio::buffer(send_buff_),
+        boost::asio::buffer(send_buff_.data(), api_message.ByteSize()),
         boost::bind(&HuaweiApiClient::HandleWrite, this,
             boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
 
@@ -544,7 +544,7 @@ void huawei_api_client_set_log_file(void* instance, const char* filename)
     }
 }
 
-void huawei_api_start(void* instance)
+void huawei_api_client_start(void* instance)
 {
     if (instance)
     {
@@ -552,7 +552,7 @@ void huawei_api_start(void* instance)
     }
 }
 
-void huawei_api_stop(void* instance)
+void huawei_api_client_stop(void* instance)
 {
     if (instance) {
         ((HuaweiApiClient*)instance)->Stop();
