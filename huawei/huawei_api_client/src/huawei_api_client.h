@@ -22,6 +22,19 @@ namespace huawei_api_client
         // description: description of the error.
         typedef boost::signals2::signal<void(int error_code, const char* description)> SignalType;
 
+        typedef enum {
+            kDisconnected = 0,
+            kConnecting,
+            kConnected,
+        } ConnectionState;
+
+        typedef enum {
+            kStoppedQosService = 0,
+            kApplyingQosRequest,
+            kUnderQosService,
+            kRemovingQosRequest,
+        } QosState;
+
     public:
         // heartbeat_interval's unit is seconds.
         HuaweiApiClient(const std::string& address, const std::string& port);
@@ -50,8 +63,14 @@ namespace huawei_api_client
         void DoApplyQosRequest();
         // Send remove qos request.
         void DoRemoveQosRequest();
-        // Send heartbeat.
-        void DoHeartbeat();
+
+        // Heartbeat.
+        void StartHeartbeat();
+        void StopHeartbeat();
+
+        // QoS timer
+        void StartQosRequestTimer();
+        void StopQosRequestTimer();
 
         // Socket handler.
         void HandleConnect(const boost::system::error_code& error);
@@ -73,9 +92,9 @@ namespace huawei_api_client
         void log(const char* s);
 
     private:
-        bool has_qos_started = { false };
-        bool is_apply_qos_pendding = { false };
-        bool is_remove_qos_pendding = { false };
+        ConnectionState connection_state_ = kDisconnected;
+        QosState qos_state_ = kStoppedQosService;
+
         bool is_heartbeat_pendding = { false };
 
         // QoS request timeout timer, unit is seconds.
