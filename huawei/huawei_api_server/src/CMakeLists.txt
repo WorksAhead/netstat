@@ -79,6 +79,7 @@ link_directories("${B64C_LIBRARY}")
 
 add_executable(huawei_api_server
                main.cpp
+			   message_handler.cpp
 			   message_handler.h
                huawei_api.cpp
                huawei_api.h

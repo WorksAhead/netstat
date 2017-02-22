@@ -7,7 +7,7 @@
 
 namespace huawei_api_server
 {
-    #define QOS_RESOURCE_REQUEST_URL "http://183.207.208.184/services/QoSV1/DynamicQoS"
+    constexpr char* kQosResourceRequestUrl = "http://183.207.208.184/services/QoSV1/DynamicQoS";
 
     class HuaweiAPI
     {

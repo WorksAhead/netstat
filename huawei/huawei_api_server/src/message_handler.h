@@ -10,21 +10,22 @@ namespace huawei_api_server
     class MessageHandler
     {
     public:
-        typedef boost::function<huawei::api::ErrorCode(Connection&, const google::protobuf::Message&)> Handler;
+        typedef boost::function<void(Connection&, const google::protobuf::Message&)> Handler;
 
     public:
-        void RegisterHandler(huawei::api::HuaweiApiMessage::MessageTypeCase message_tag, const Handler& handler)
-        {
-            handler_map_[message_tag] = handler;
-        }
+        static void RegisterMessageHandler();
 
-        Handler GetHandler(huawei::api::HuaweiApiMessage::MessageTypeCase message_tag)
-        {
-            return handler_map_[message_tag];
-        }
+        static void RegisterHandler(huawei::api::HuaweiApiMessage::MessageTypeCase message_tag, const Handler& handler);
+        static Handler GetHandler(huawei::api::HuaweiApiMessage::MessageTypeCase message_tag);
+    
+    private:
+        static void ApplyQoSRequest(Connection& connection, const google::protobuf::Message& message);
+        static void RemoveQoSRequest(Connection& connection, const google::protobuf::Message& message);
+        static void ReplyHeartbeatRequest(Connection& connection, const google::protobuf::Message& message);
 
     private:
-        std::map<huawei::api::HuaweiApiMessage::MessageTypeCase, Handler> handler_map_;
+        typedef std::map<huawei::api::HuaweiApiMessage::MessageTypeCase, Handler> HandlerMap;
+        static HandlerMap handler_map_;
     };
 }
 

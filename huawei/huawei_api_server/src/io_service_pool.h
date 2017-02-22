@@ -9,11 +9,11 @@
 namespace huawei_api_server
 {
     // A pool of io_service objects.
-    class IOServicePool : private boost::noncopyable
+    class IoServicePool : private boost::noncopyable
     {
     public:
         // Construct the io_service pool.
-        explicit IOServicePool(std::size_t poolSize);
+        explicit IoServicePool(std::size_t pool_size);
 
         // Run all io_service objects in the pool.
         void Run();
@@ -28,11 +28,11 @@ namespace huawei_api_server
         typedef boost::shared_ptr<boost::asio::io_service::work> WorkPtr;
 
         // The pool of io_services.
-        std::vector<IOServicePtr> m_IOServiceVector;
+        std::vector<IOServicePtr> io_service_vector_;
         // The work that keeps the io_services running.
-        std::vector<WorkPtr> m_WorkVector;
+        std::vector<WorkPtr> work_vector_;
         // The next io_service to use for a connection.
-        std::size_t m_NextIOService;
+        std::size_t next_io_service_;
     };
 }
 

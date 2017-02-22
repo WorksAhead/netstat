@@ -23,7 +23,7 @@ static size_t RequestCallback(char *ptr, size_t size, size_t nmemb, void *userda
     json response = json::parse(ptr);
 
     int resultCode = response.value("ResultCode", 0);
-    std::string resultMsg = response.value("ResultMessage", "Success");
+    std::string result_msg = response.value("ResultMessage", "Success");
 
     HuaweiAPI* instance = (HuaweiAPI*)userdata;
 
@@ -31,7 +31,7 @@ static size_t RequestCallback(char *ptr, size_t size, size_t nmemb, void *userda
     instance->set_correlation_id(response.value("CorrelationId", "0"));
     // Update result.
     instance->set_error_code(resultCode);
-    instance->set_description(resultMsg);
+    instance->set_description(result_msg);
 
     size_t realsize = size * nmemb;
     return realsize;
@@ -169,7 +169,7 @@ HuaweiAPI::ApplyQoSResourceRequest(const std::string& local_ip, const std::strin
     if (curl_handle)
     {
         // Set URL.
-        curl_easy_setopt(curl_handle, CURLOPT_URL, QOS_RESOURCE_REQUEST_URL);
+        curl_easy_setopt(curl_handle, CURLOPT_URL, kQosResourceRequestUrl);
 
         // Set headers.
         struct curl_slist *headers = ConstructApplyQoSResourceRequestHeaders();
@@ -226,7 +226,7 @@ HuaweiAPI::RemoveQoSResourceRequest()
     if (curl_handle)
     {
         // Set URL.
-        std::string huaweiApiUrl = boost::str(boost::format("%1%/%2%") % QOS_RESOURCE_REQUEST_URL % correlation_id_);
+        std::string huaweiApiUrl = boost::str(boost::format("%1%/%2%") % kQosResourceRequestUrl % correlation_id_);
         curl_easy_setopt(curl_handle, CURLOPT_URL, huaweiApiUrl.c_str());
 
         // Set headers.

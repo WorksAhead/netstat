@@ -409,8 +409,12 @@ huawei::api::ErrorCode HuaweiApiClient::ApplyQoSResponse(const google::protobuf:
     {
         qos_state_ = kStoppedQosService;
 
-        signal_(-1, "<error> Failed to ApplyQoSRequest.");
-        log("<error> Failed to ApplyQoSRequest.");
+        signal_(-1, boost::str(boost::format(
+            "<error> Failed to ApplyQoSRequest. %1%") % 
+            apply_qos_response.reason()).c_str());
+        log(boost::str(boost::format(
+            "<error> Failed to ApplyQoSRequest. %1%") %
+            apply_qos_response.reason()).c_str());
     }
 
     return apply_qos_response.error_code();
@@ -441,8 +445,12 @@ huawei::api::ErrorCode HuaweiApiClient::RemoveQoSResponse(const google::protobuf
     }
     else
     {
-        signal_(-1, "<error> Failed to RemoveQoSRequest.");
-        log("<error> Failed to RemoveQoSRequest.");
+        signal_(-1, boost::str(boost::format(
+            "<error> Failed to RemoveQoSRequest. %1%") %
+            remove_qos_response.reason()).c_str());
+        log(boost::str(boost::format(
+            "<error> Failed to RemoveQoSRequest. %1%") %
+            remove_qos_response.reason()).c_str());
     }
 
     return remove_qos_response.error_code();

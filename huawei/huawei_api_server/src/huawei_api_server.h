@@ -31,12 +31,12 @@ namespace huawei_api_server
 
     private:
         // The pool of io_service objects used to perform asynchronous operations.
-        IOServicePool m_IOServicePool;
+        IoServicePool io_service_pool_;
 
         // The signal_set is used to register for process termination notifications.
-        boost::asio::signal_set m_Signals;
+        boost::asio::signal_set signals_;
         // Acceptor used to listen for incoming connections.
-        boost::asio::ip::tcp::acceptor m_Acceptor;
+        boost::asio::ip::tcp::acceptor acceptor_;
     };
 }
 

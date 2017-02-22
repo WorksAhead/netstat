@@ -1,11 +1,13 @@
 #include <boost/program_options.hpp>
-#include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 
 #include "logger.h"
 #include "huawei_api_server.h"
+
+using namespace huawei_api_server;
+namespace po = boost::program_options;
 
 #if defined (__linux__) || defined (__FreeBSD__)
 # include <unistd.h>
@@ -107,9 +109,6 @@ void Daemonize(const char* log_file_path)
     }
 }
 #endif
-
-using namespace huawei_api_server;
-namespace po = boost::program_options;
 
 int main(int argc, char* argv[])
 {
