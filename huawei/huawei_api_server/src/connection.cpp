@@ -28,8 +28,7 @@ Connection::Connection(boost::asio::io_service& IOService)
     huawei_api_ = new HuaweiAPI(realm, username, password, nonce);
 }
 
-Connection::~Connection()
-{
+Connection::~Connection() {
     delete huawei_api_;
 }
 
@@ -47,7 +46,6 @@ void Connection::Start() {
 
     // OK, it's time to read data.
     std::fill(std::begin(recv_buff_), std::end(recv_buff_), 0);
-
     socket_.async_read_some(boost::asio::buffer(recv_buff_),
         boost::bind(&Connection::HandleRead, shared_from_this(),
             boost::asio::placeholders::error,
@@ -55,12 +53,14 @@ void Connection::Start() {
 }
 
 void Connection::HandleRead(const boost::system::error_code& error,
-                            std::size_t bytes_transferred) {
+    std::size_t bytes_transferred) {
     if (!error)
     {
+        // Parse message.
         HuaweiApiMessage huawei_api_message;
         if (!huawei_api_message.ParseFromArray(recv_buff_.data(), (int)bytes_transferred))
         {
+            SERVER_LOGGER(warning) << "Failed to parse received data, close the connection.";
             Close();
             return;
         }
@@ -69,13 +69,18 @@ void Connection::HandleRead(const boost::system::error_code& error,
         const google::protobuf::FieldDescriptor* sub_message_descriptor = huawei_api_message.GetDescriptor()->FindFieldByNumber(sub_message_type);
         const google::protobuf::Message& sub_message = huawei_api_message.GetReflection()->GetMessage(huawei_api_message, sub_message_descriptor);
 
-        // Call handler.
-        MessageHandler::Handler handler = MessageHandler::GetHandler(sub_message_type);
-        if (handler != nullptr)
+        // Find message handler.
+        const MessageHandler::Handler* handler = MessageHandler::FindHandler(sub_message_type);
+        if (handler == nullptr)
         {
-            handler(*this, sub_message);
+            SERVER_LOGGER(warning) << "Failed to find a handler for the message " << sub_message_type;
+            return;
         }
 
+        // Call handler & procoess message.
+        (*handler)(*this, sub_message);
+
+        // Setup read callback again.
         socket_.async_read_some(boost::asio::buffer(recv_buff_),
             boost::bind(&Connection::HandleRead, shared_from_this(),
                 boost::asio::placeholders::error,
@@ -84,24 +89,15 @@ void Connection::HandleRead(const boost::system::error_code& error,
     else
     {
         // Received EOF, close connection.
-        // TODO: remove qos request
         Close();
     }
 }
 
-void Connection::HandleWrite(const boost::system::error_code& error, std::size_t bytesTransferred)
-{
-    if (!error)
+void Connection::HandleWrite(const boost::system::error_code& error, 
+    std::size_t bytes_transferred) {
+    if (error)
     {
-        /*
-        m_Socket.async_receive(boost::asio::buffer(recv_buff_),
-            boost::bind(&Connection::HandleRead, this,
-                boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
-        */
-    }
-    else
-    {
-        // Write data failed, close and reconnect the server.
+        SERVER_LOGGER(warning) << "Failed to send message, close the connection.";
         Close();
     }
 }

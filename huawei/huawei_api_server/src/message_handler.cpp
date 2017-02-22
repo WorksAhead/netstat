@@ -16,8 +16,14 @@ void MessageHandler::RegisterHandler(huawei::api::HuaweiApiMessage::MessageTypeC
     handler_map_[message_tag] = handler;
 }
 
-MessageHandler::Handler MessageHandler::GetHandler(huawei::api::HuaweiApiMessage::MessageTypeCase message_tag) {
-    return handler_map_[message_tag];
+const MessageHandler::Handler* MessageHandler::FindHandler(huawei::api::HuaweiApiMessage::MessageTypeCase message_tag) {
+    HandlerMap::const_iterator itor = handler_map_.find(message_tag);
+    if (itor != handler_map_.end())
+    {
+        return &(itor->second);
+    }
+
+    return nullptr;
 }
 
 void MessageHandler::ApplyQoSRequest(Connection& connection, const google::protobuf::Message& message) {

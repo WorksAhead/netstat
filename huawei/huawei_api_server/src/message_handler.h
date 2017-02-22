@@ -16,7 +16,7 @@ namespace huawei_api_server
         static void RegisterMessageHandler();
 
         static void RegisterHandler(huawei::api::HuaweiApiMessage::MessageTypeCase message_tag, const Handler& handler);
-        static Handler GetHandler(huawei::api::HuaweiApiMessage::MessageTypeCase message_tag);
+        static const Handler* FindHandler(huawei::api::HuaweiApiMessage::MessageTypeCase message_tag);
     
     private:
         static void ApplyQoSRequest(Connection& connection, const google::protobuf::Message& message);
