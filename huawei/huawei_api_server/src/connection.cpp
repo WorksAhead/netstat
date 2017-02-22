@@ -10,30 +10,16 @@
 using namespace huawei_api_server;
 using namespace huawei::api;
 
-Connection::ConnectionList Connection::s_ConnectionList;
+Connection::ConnectionList Connection::connection_list_;
 
-//MessageHandler Connection::message_handler_;
-
-ConnectionPtr
-Connection::Create(boost::asio::io_service& IOService)
-{
+ConnectionPtr Connection::Create(boost::asio::io_service& IOService) {
     ConnectionPtr conn(new Connection(IOService));
-    s_ConnectionList.push_front(conn);
+    connection_list_.push_front(conn);
     return conn;
 }
 
-/*
-void Connection::RegisterMessageHandler()
-{
-    message_handler_.RegisterHandler(HuaweiApiMessage::MessageTypeCase::kApplyQosRequest, ApplyQoSRequest);
-    message_handler_.RegisterHandler(HuaweiApiMessage::MessageTypeCase::kRemoveQosRequest, RemoveQoSRequest);
-    message_handler_.RegisterHandler(HuaweiApiMessage::MessageTypeCase::kHeartbeatRequest, ReplyHeartbeatRequest);
-}
-*/
-
 Connection::Connection(boost::asio::io_service& IOService)
-    : socket_(IOService)
-{
+    : socket_(IOService) {
     const char* realm = "ChangyouRealm";
     const char* username = "ChangyouDevice";
     const char* password = "Changyou@123";
@@ -44,16 +30,14 @@ Connection::Connection(boost::asio::io_service& IOService)
 
 Connection::~Connection()
 {
-
+    delete huawei_api_;
 }
 
-boost::asio::ip::tcp::socket& Connection::socket()
-{
+boost::asio::ip::tcp::socket& Connection::socket() {
     return socket_;
 }
 
-void Connection::Start()
-{
+void Connection::Start() {
     // Save address and port.
     remote_public_ip_ = socket_.remote_endpoint().address().to_string();
 
@@ -70,9 +54,9 @@ void Connection::Start()
             boost::asio::placeholders::bytes_transferred));
 }
 
-void Connection::HandleRead(const boost::system::error_code& err, 
+void Connection::HandleRead(const boost::system::error_code& error,
                             std::size_t bytes_transferred) {
-    if (!err)
+    if (!error)
     {
         HuaweiApiMessage huawei_api_message;
         if (!huawei_api_message.ParseFromArray(recv_buff_.data(), (int)bytes_transferred))
@@ -136,9 +120,10 @@ Connection::Close()
             SERVER_LOGGER(warning) << "Failed to shutdown socket of [" << remote_public_ip_ << "], because of " << ignored_ec << ".";
         }
     }
-    s_ConnectionList.remove(shared_from_this());
+    connection_list_.remove(shared_from_this());
 }
 
+// --------------- Redirect QoS request ------------------
 void Connection::DoApplyQosRequest(const std::string& remote_local_ip) {
     huawei_api_->ApplyQoSResourceRequest(remote_local_ip, remote_public_ip_);
 }
@@ -147,14 +132,14 @@ void Connection::DoRemoveQosRequest() {
     huawei_api_->RemoveQoSResourceRequest();
 }
 
+// ---------------- Replays ------------------
 void Connection::ReplyApplyQosRequest() {
-    // Setup response.
     ApplyQosResponse* qos_response = new ApplyQosResponse;
-    //if (huawei_api_->error_code() != 0)
-    //{
-    //    qos_response->set_error_code(ErrorCode::ERROR_CODE_APPLY_QOS_FAILED);
-    //}
-    //else
+    if (huawei_api_->error_code() != 0)
+    {
+        qos_response->set_error_code(ErrorCode::ERROR_CODE_APPLY_QOS_FAILED);
+    }
+    else
     {
         qos_response->set_error_code(ErrorCode::ERROR_CODE_NONE);
     }
@@ -173,7 +158,6 @@ void Connection::ReplyApplyQosRequest() {
 }
 
 void Connection::ReplyRemoveQosRequest() {
-    // Setup response.
     RemoveQosResponse* qos_response = new RemoveQosResponse;
     if (huawei_api_->error_code() != 0)
     {
@@ -198,54 +182,16 @@ void Connection::ReplyRemoveQosRequest() {
 }
 
 void Connection::ReplyHeartbeatRequest() {
-
-}
-
-/*
-void Connection::DoApplyQoSResponse(int error_code, const std::string& description)
-{
-    ApplyQosResponse* qos_response = new ApplyQosResponse;
-    qos_response->set_error_code(ErrorCode::ERROR_CODE_NONE);
-    qos_response->set_reason(description);
+    HeartbeatResponse* heartbeat_response = new HeartbeatResponse;
 
     HuaweiApiMessage api_message;
-    api_message.set_allocated_apply_qos_response(qos_response);
+    api_message.set_allocated_heartbeat_response(heartbeat_response);
 
     std::fill(std::begin(send_buff_), std::end(send_buff_), 0);
     api_message.SerializeToArray(send_buff_.data(), api_message.ByteSize());
 
     boost::asio::async_write(socket_,
         boost::asio::buffer(send_buff_.data(), api_message.ByteSize()),
-        boost::bind(&Connection::HandleWrite, this,
+        boost::bind(&Connection::HandleWrite, shared_from_this(),
             boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
 }
-
-//
-void Connection::ApplyQoSRequest(Connection& connection, 
-    const google::protobuf::Message& message) {
-
-    if (message.GetTypeName() != "huawei.api.ApplyQosRequest")
-    {
-        std::cerr << "Message type is incorrect." << std::endl;
-        return;
-    }
-
-    const huawei::api::ApplyQosRequest& apply_qos_request = (huawei::api::ApplyQosRequest&)(message);
-
-    connection.DoApplyQosRequest(apply_qos_request.local_ip());
-
-    connection.DoApplyQoSResponse(connection.huawei_api_->error_code(), connection.huawei_api_->description());
-}
-
-void Connection::RemoveQoSRequest(
-    Connection& connection,
-    const google::protobuf::Message& message) { 
-
-}
-
-void Connection::ReplyHeartbeatRequest(
-    Connection& connection,
-    const google::protobuf::Message& message) { 
-
-}
-*/

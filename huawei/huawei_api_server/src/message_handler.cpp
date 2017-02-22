@@ -47,5 +47,11 @@ void MessageHandler::RemoveQoSRequest(Connection& connection, const google::prot
 }
 
 void MessageHandler::ReplyHeartbeatRequest(Connection& connection, const google::protobuf::Message& message) {
+    if (message.GetTypeName() != "huawei.api.HeartbeatRequest")
+    {
+        SERVER_LOGGER(warning) << "Message type is incorrect." << std::endl;
+        return;
+    }
 
+    connection.ReplyHeartbeatRequest();
 }

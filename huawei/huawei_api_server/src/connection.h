@@ -26,8 +26,6 @@ namespace huawei_api_server
     public:
         // Create a connection.
         static ConnectionPtr Create(boost::asio::io_service& IOService);
-        // QoS Request message handler.
-        //static void RegisterMessageHandler();
 
         // Construct a connection with the given io_service.
         explicit Connection(boost::asio::io_service& IOService);
@@ -41,27 +39,19 @@ namespace huawei_api_server
         // Close the connection and remove itself from s_ConnectionList.
         void Close();
 
-        // Redirect QoS Request.
+        // Redirect QoS Requests.
         void DoApplyQosRequest(const std::string& remote_local_ip);
         void DoRemoveQosRequest();
         
+        // Reply requests.
         void ReplyApplyQosRequest();
         void ReplyRemoveQosRequest();
         void ReplyHeartbeatRequest();
 
-
-
     private:
         // Handle completion of a read operation.
-        void HandleRead(const boost::system::error_code& err, std::size_t bytes_transferred);
+        void HandleRead(const boost::system::error_code& error, std::size_t bytes_transferred);
         void HandleWrite(const boost::system::error_code& error, std::size_t bytes_transferred);
-
-        void DoApplyQoSResponse(int error_code, const std::string& description);
-
-        //
-        //static void ApplyQoSRequest(Connection& connection, const google::protobuf::Message& message);
-        //static void RemoveQoSRequest(Connection& connection, const google::protobuf::Message& message);
-        //static void ReplyHeartbeatRequest(Connection& connection, const google::protobuf::Message& message);
 
     private:
         // Socket for the connection.
@@ -71,17 +61,15 @@ namespace huawei_api_server
         std::array<char, BUFFER_SIZE> recv_buff_;
         std::array<char, BUFFER_SIZE> send_buff_;
 
-        //
+        // Huawei QoS API wrapper.
         HuaweiAPI* huawei_api_;
 
+        // Remote client's public ip.
         std::string remote_public_ip_;
 
         // Global activity connections.
         typedef boost::container::slist<ConnectionPtr> ConnectionList;
-        static ConnectionList s_ConnectionList;
-
-        // Message handler.
-        //static MessageHandler message_handler_;
+        static ConnectionList connection_list_;
     };
 }
 
