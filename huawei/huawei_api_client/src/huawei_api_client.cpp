@@ -155,6 +155,9 @@ void HuaweiApiClient::Close() {
 }
 
 void HuaweiApiClient::DoApplyQosRequest() {
+    signal_(0, "Send ApplyQoSRequest to Huawei Api Server.");
+    log("Send ApplyQoSRequest to Huawei Api Server.");
+
     ApplyQosRequest* qos_request = new ApplyQosRequest;
     qos_request->set_local_ip(socket_.local_endpoint().address().to_string());
 
@@ -171,6 +174,9 @@ void HuaweiApiClient::DoApplyQosRequest() {
 }
 
 void HuaweiApiClient::DoRemoveQosRequest() {
+    signal_(0, "Send RemoveQoSRequest to Huawei Api Server.");
+    log("Send RemoveQoSRequest to Huawei Api Server.");
+
     RemoveQosRequest* qos_request = new RemoveQosRequest;
 
     HuaweiApiMessage api_message;
@@ -208,7 +214,7 @@ void HuaweiApiClient::StartHeartbeat()
     }
     else
     {
-        heartbeat_timer_->expires_at(heartbeat_timer_->expires_at() + boost::posix_time::millisec(heartbeat_interval_));
+        heartbeat_timer_->expires_at(heartbeat_timer_->expires_at() + boost::posix_time::seconds(heartbeat_interval_));
     }
     heartbeat_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleHeartbeat, this));
 }
@@ -246,6 +252,9 @@ void HuaweiApiClient::HandleConnect(const boost::system::error_code& error)
 {
     if (!error)
     {
+        signal_(0, "Connected to Huawei Api Server.");
+        log("Connected to Huawei Api Server.");
+
         connection_state_ = kConnected;
         if (qos_state_ == kApplyingQosRequest || qos_state_ == kUnderQosService)
         {
@@ -367,7 +376,10 @@ void HuaweiApiClient::HandleHeartbeat()
         log("<error> Failed to receive heartbeat response from Huawei Api Server.");
     }
 
-    StartHeartbeat();
+    if (heartbeat_timer_ != nullptr)
+    {
+        StartHeartbeat();
+    }
 }
 
 huawei::api::ErrorCode HuaweiApiClient::ApplyQoSResponse(const google::protobuf::Message& message) {

@@ -89,6 +89,11 @@ void Connection::HandleRead(const boost::system::error_code& err,
         {
             handler(*this, sub_message);
         }
+
+        m_Socket.async_read_some(boost::asio::buffer(recv_buff_),
+            boost::bind(&Connection::HandleRead, shared_from_this(),
+                boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred));
     }
     else
     {
@@ -102,11 +107,11 @@ void Connection::HandleWrite(const boost::system::error_code& error, std::size_t
 {
     if (!error)
     {
-        // Ready to read response.
-        boost::asio::async_read(m_Socket,
-            boost::asio::buffer(recv_buff_),
+        /*
+        m_Socket.async_receive(boost::asio::buffer(recv_buff_),
             boost::bind(&Connection::HandleRead, this,
                 boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+        */
     }
     else
     {

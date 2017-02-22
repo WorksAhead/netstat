@@ -98,11 +98,11 @@ namespace huawei_api_client
         bool is_heartbeat_pendding = { false };
 
         // QoS request timeout timer, unit is seconds.
-        uint32_t qos_request_timeout_ = { 10 };
+        uint32_t qos_request_timeout_ = { 7 };
         boost::shared_ptr<boost::asio::deadline_timer> qos_request_timer_;
 
         // Heartbeat timer, unit is seconds.
-        uint32_t heartbeat_interval_ = { 30 };
+        uint32_t heartbeat_interval_ = { 15 };
         boost::shared_ptr<boost::asio::deadline_timer> heartbeat_timer_;
 
         // Huawei api server ip & port.
