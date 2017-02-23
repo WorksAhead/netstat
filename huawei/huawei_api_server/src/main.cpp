@@ -198,21 +198,27 @@ int main(int argc, char* argv[])
     // Initialise the server before becoming a daemon. If the process is
     // started from a shell, this means any errors will be reported back to the
     // user.
-    HuaweiApiServer server(address, port, thread_num);
+    try {
+        HuaweiApiServer server(address, port, thread_num);
 
-    // Run as daemon or not.
+        // Run as daemon or not.
 #if defined (__linux__) || defined (__FreeBSD__)
-    if (is_daemonize)
-    {
-        std::cout << "Process is running as a daemon." << std::endl;
-        Daemonize(log_file_path.c_str());
-    }
+        if (is_daemonize)
+        {
+            std::cout << "Process is running as a daemon." << std::endl;
+            Daemonize(log_file_path.c_str());
+        }
 #endif
 
-    // Server run.
-    SERVER_LOGGER(info) << "Server is running.";
-    server.Run();
-    SERVER_LOGGER(info) << "Server is shutting down.";
+        // Server run.
+        SERVER_LOGGER(info) << "Server is running.";
+        server.Run();
+        SERVER_LOGGER(info) << "Server is shutting down.";
+    }
+    catch (boost::system::system_error& error) {
+        SERVER_LOGGER(fatal) << "Failed to initialize HuaweiApiServer. " << error.what();
+        exit(-1);
+    }
 
     return 0;
 }
