@@ -38,7 +38,7 @@ void log(const char* msg)
 int main()
 {
 	void* p = latency_client_create();
-	void* p2 = icmp_client_create();
+	//void* p2 = icmp_client_create();
 
 	if (p)
 	{
@@ -47,32 +47,32 @@ int main()
 		latency_client_set_endpoint(p, "10.1.9.84", "3000");
 	}
 
-	if (p2)
-	{
-		icmp_client_set_log_callback(p2, log);
-		icmp_client_set_log_file(p2, "log_ping.txt");
-		icmp_client_set_endpoint(p2, "10.1.9.84");
-	}
+	//if (p2)
+	//{
+	//	icmp_client_set_log_callback(p2, log);
+	//	icmp_client_set_log_file(p2, "log_ping.txt");
+	//	icmp_client_set_endpoint(p2, "10.1.9.84");
+	//}
 
-	for (int i = 0; i < 10; ++i)
+	for (int i = 0; i < 1; ++i)
 	{
 		if (p) {
 			latency_client_start(p);
 		}
 
-		if (p2) {
-			icmp_client_start(p2);
-		}
+		//if (p2) {
+		//	icmp_client_start(p2);
+		//}
 
-		boost::this_thread::sleep_for(boost::chrono::seconds(30));
+		boost::this_thread::sleep_for(boost::chrono::minutes(60 * 8));
 
 		if (p) {
 			latency_client_stop(p);
 		}
 
-		if (p2) {
-			icmp_client_stop(p2);
-		}
+		//if (p2) {
+		//	icmp_client_stop(p2);
+		//}
 	}
 
 	if (p)
@@ -80,9 +80,9 @@ int main()
 		latency_client_destory(p);
 	}
 
-	if (p2)
-	{
-		icmp_client_destory(p2);
-	}
+	//if (p2)
+	//{
+	//	icmp_client_destory(p2);
+	//}
 }
 
