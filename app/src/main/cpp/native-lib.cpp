@@ -3,9 +3,9 @@
 #include <boost/lockfree/queue.hpp>
 
 /// ip & port to connect
-static const char* cLatencyIp = "52.199.165.141";
-static const char* cLatencyPort = "9002";
-static const char* cTTcpIp = "52.199.165.141";
+static const char* cServerAddress = "vec5.info";
+static const char* cLatencyPort = "7001";
+static const char* cHuaweiApiPort = "6001";
 static const char* cTTcpPort = "5001";
 
 /// latency client
@@ -28,14 +28,13 @@ void ttcp_client_start(void* instance);
 void ttcp_client_stop(void* instance);
 
 /// huawei api
-typedef void(*huawei_api_callback_t)(int result, const char* msg);
-void* huawei_api_create(const char* realm, const char* username, const char* password, const char* nonce);
-void huawei_api_destory(void* instance);
-void huawei_api_set_callback(void* instance, huawei_api_callback_t callback);
-void huawei_api_async_apply_qos_resource_request(void* instance);
-void huawei_api_apply_qos_resource_request(void* instance);
-void huawei_api_async_remove_qos_resource_request(void* instance);
-void huawei_api_remove_qos_resource_request(void* instance);
+typedef void(*huawei_api_client_log_callback_t)(int error_code, const char* description);
+void* huawei_api_client_create(const char* address, const char* port);
+void huawei_api_client_destory(void* instance);
+void huawei_api_client_set_log_callback(void* instance, huawei_api_client_log_callback_t log_callback);
+void huawei_api_client_set_log_file(void* instance, const char* filename);
+void huawei_api_client_start(void* instance);
+void huawei_api_client_stop(void* instance);
 
 const char* realm = "ChangyouRealm";
 const char* username = "ChangyouDevice";
@@ -132,12 +131,12 @@ Java_com_cyou_netstat_MainActivity_GlobalInitialize(
 	latency_client_set_log_callback(gLatencyClientInstance, &NativeLogCallback);
 
 	// initialzie ttcp library
-	gTTcpClientInstance = ttcp_client_create(cTTcpIp, cTTcpPort, 1000);
+	gTTcpClientInstance = ttcp_client_create(cServerAddress, cTTcpPort, 1000);
 	ttcp_client_set_log_callback(gTTcpClientInstance, &NativeLogCallback);
 
 	// initialize huawei api
-	gHuaweiApiInstance = huawei_api_create(realm, username, password, nonce);
-	huawei_api_set_callback(gHuaweiApiInstance, huawei_callback);
+	gHuaweiApiInstance = huawei_api_client_create(cServerAddress, cHuaweiApiPort);
+	huawei_api_client_set_log_callback(gHuaweiApiInstance, huawei_callback);
 
 	const char *nativeString = env->GetStringUTFChars(ipAddress, 0);
 	env->ReleaseStringUTFChars(ipAddress, nativeString);
@@ -152,7 +151,7 @@ Java_com_cyou_netstat_MainActivity_GlobalDestroy(
 {
 	latency_client_destory(gLatencyClientInstance);
 	ttcp_client_destory(gTTcpClientInstance);
-	huawei_api_destory(gHuaweiApiInstance);
+	huawei_api_client_destory(gHuaweiApiInstance);
 }
 
 extern "C" void
@@ -167,7 +166,7 @@ Java_com_cyou_netstat_MainActivity_StartDelayTest(
 	env->ReleaseStringUTFChars(logPath, nativeString);
 
 	// set end point
-	latency_client_set_endpoint(gLatencyClientInstance, cLatencyIp, cLatencyPort);
+	latency_client_set_endpoint(gLatencyClientInstance, cServerAddress, cLatencyPort);
 
 	// start
 	latency_client_start(gLatencyClientInstance);
@@ -209,7 +208,7 @@ Java_com_cyou_netstat_MainActivity_StartSpeedup(
 		JNIEnv* env,
 		jobject /* this */)
 {
-	huawei_api_async_apply_qos_resource_request(gHuaweiApiInstance);
+	huawei_api_client_start(gHuaweiApiInstance);
 }
 
 extern "C" void
@@ -217,5 +216,5 @@ Java_com_cyou_netstat_MainActivity_StopSpeedup(
 		JNIEnv* env,
 		jobject /* this */)
 {
-	huawei_api_async_remove_qos_resource_request(gHuaweiApiInstance);
+	huawei_api_client_stop(gHuaweiApiInstance);
 }
