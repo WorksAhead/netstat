@@ -115,6 +115,10 @@ HuaweiAPI::ConstructApplyQoSResourceRequestHeaders()
 std::string
 HuaweiAPI::ConstructApplyQoSResourceRequestBody(const std::string& local_ip, const std::string& public_ip)
 {
+    // Testing IP.
+    // public_ip = "117.136.66.140";
+    // local_ip = "10.43.213.156";
+
     json body;
 
     json::object_t userId =
