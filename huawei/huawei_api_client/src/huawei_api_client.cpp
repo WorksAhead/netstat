@@ -90,7 +90,18 @@ void HuaweiApiClient::Start() {
 
     if (connection_state_ == kDisconnected)
     {
-        Connect();
+        try {
+            Connect();
+        } catch (boost::system::system_error& error) {
+            connection_state_ = kDisconnected;
+            qos_state_ = kStoppedQosService;
+
+            signal_(-1, boost::str(boost::format(
+              "<error> Failed to connect to HuaweiApiServer. %1%") % error.what()).c_str());
+            log(boost::str(boost::format(
+              "<error> Failed to connect to HuaweiApiServer. %1%") % error.what()).c_str());
+        }
+        
     }
     else
     {
@@ -295,10 +306,25 @@ void HuaweiApiClient::HandleWrite(const boost::system::error_code& error, std::s
     {
         // Write data failed, close and reconnect the server.
         Close();
-        Connect();
 
         signal_(-1, "<error> Failed to write data to Huawei Api Server, trying to reconnect the server.");
         log("<error> Failed to write data to Huawei Api Server, trying to reconnect the server.");
+
+        try {
+          Connect();
+        }
+        catch (boost::system::system_error& error) {
+          connection_state_ = kDisconnected;
+          qos_state_ = kStoppedQosService;
+
+          StopQosRequestTimer();
+          StopHeartbeat();
+
+          signal_(-1, boost::str(boost::format(
+            "<error> Failed to connect to HuaweiApiServer. %1%") % error.what()).c_str());
+          log(boost::str(boost::format(
+            "<error> Failed to connect to HuaweiApiServer. %1%") % error.what()).c_str());
+        }
     }
 }
 
@@ -337,11 +363,24 @@ void HuaweiApiClient::HandleRead(const boost::system::error_code& error, std::si
         if (qos_state_ != kStoppedQosService)
         {
             // Read data failed, close and reconnect the server.
-            
-            Connect();
-
             signal_(-1, "<error> Failed to read data from Huawei Api Server, connection has broken, trying to reconnect the server.");
             log("<error> Failed to read data from Huawei Api Server, connection has broken, trying to reconnect the server.");
+
+            try {
+              Connect();
+            }
+            catch (boost::system::system_error& error) {
+              connection_state_ = kDisconnected;
+              qos_state_ = kStoppedQosService;
+
+              StopQosRequestTimer();
+              StopHeartbeat();
+
+              signal_(-1, boost::str(boost::format(
+                "<error> Failed to connect to HuaweiApiServer. %1%") % error.what()).c_str());
+              log(boost::str(boost::format(
+                "<error> Failed to connect to HuaweiApiServer. %1%") % error.what()).c_str());
+            }
         }
     }
 }
