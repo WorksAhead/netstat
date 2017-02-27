@@ -2,10 +2,13 @@
 #include <boost/thread.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/date_time.hpp>
 
 #include <vector>
 #include <string>
 #include <iostream>
+
+boost::mutex stdoutSync_;
 
 #if defined (__linux__) || defined (__FreeBSD__)
 
@@ -214,6 +217,10 @@ private:
 		if (!ec) {
 			socket_.async_write_some(boost::asio::buffer(data, bytes_transferred),
 				boost::bind(&session::handle_write, this, boost::placeholders::_1, boost::placeholders::_2));
+
+			boost::mutex::scoped_lock lock(stdoutSync_);
+			std::string now = boost::posix_time::to_iso_string(boost::posix_time::microsec_clock::local_time());
+			std::cout << "[" << now << "] " << "endpoint=" << socket_.remote_endpoint() << " " << " bytes=" << bytes_transferred << std::endl;
 		}
 		else {
 			delete this;
