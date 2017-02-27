@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package huawei.api;
+
+message HuaweiApiMessage {
+  oneof message_type {
+    ApplyQosRequest    apply_qos_request    = 1;
+    ApplyQosResponse   apply_qos_response   = 2;
+    RemoveQosRequest   remove_qos_request   = 3;
+    RemoveQosResponse  remove_qos_response  = 4;
+    HeartbeatRequest   heartbeat_request    = 5;
+    HeartbeatResponse  heartbeat_response   = 6;
+  }
+}
+
+enum ErrorCode {
+  ERROR_CODE_NONE               = 0;  // No error.
+  ERROR_CODE_UNKNOWN            = 1;  // Unknown error.
+  ERROR_CODE_INVALID_MSG        = 2;  // Invalid message format.
+  ERROR_CODE_APPLY_QOS_FAILED   = 3;  // Failed to apply qos.
+  ERROR_CODE_REMOVE_QOS_FAILED  = 4;  // Failed to remove qos.
+}
+
+message ApplyQosRequest {
+  string local_ip = 1;
+}
+
+message ApplyQosResponse {
+  ErrorCode error_code = 1;
+  string reason        = 2;
+}
+
+message RemoveQosRequest {
+}
+
+message RemoveQosResponse {
+  ErrorCode error_code = 1;
+  string reason        = 2;
+}
+
+message HeartbeatRequest {
+}
+
+message HeartbeatResponse {
+}

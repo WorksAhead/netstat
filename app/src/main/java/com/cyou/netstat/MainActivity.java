@@ -1,6 +1,7 @@
 package com.cyou.netstat;
 
 import android.content.Context;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.support.v7.app.AppCompatActivity;
@@ -17,9 +18,9 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.ToggleButton;
 
+import java.io.DataOutputStream;
 import java.io.File;
 import java.util.Locale;
-import java.util.Timer;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener
 	, Switch.OnCheckedChangeListener, Chronometer.OnChronometerTickListener
@@ -33,9 +34,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 	private String LogPath = null;
 
 	private PStateListener PhoneListener = null;
-	Timer timer = null;
 
 	private static boolean InitializeGuard = false;
+	private static long BaseClockTime = 0;
+
+	private static boolean CurrentSpeedupState = false;
+	private static String CurrentIpAddress = null;
 
 	@Override
 	public void onChronometerTick(Chronometer var1)
@@ -46,9 +50,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 			String logMsgs[] = logMsg.split("\n");
 			for (String singleLog : logMsgs)
 			{
-				LogUtil.LogToView(singleLog, LogUtil.LogType.Info, false);
+				// <error>
+				if (singleLog.startsWith("<error>"))
+				{
+					LogUtil.LogToView(singleLog, LogUtil.LogType.Critical, false);
+				}
+				else
+				{
+					LogUtil.LogToView(singleLog, LogUtil.LogType.Info, false);
+				}
 			}
 		}
+		BaseClockTime = var1.getBase();
 	}
 
 	@Override
@@ -75,36 +88,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		// mode switch
 		BandwidthRadio = (RadioButton)findViewById(R.id.bandwidthRadio);
 		DelayRadio = (RadioButton)findViewById(R.id.delayRadio);
-		DelayRadio.setChecked(true);
 
 		// phone listener
 		PhoneListener = new PStateListener();
 		TelephonyManager Tel = (TelephonyManager)getSystemService(Context.TELEPHONY_SERVICE);
 		Tel.listen(PhoneListener, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
-
-		// initialize log utility
-		LogUtil.SetTextView(LogView);
-
-		LogUtil.LogToView("global initializing...");
-
-		try
-		{
-			File path = getWindow().getContext().getExternalFilesDir("netstatlog");
-			if( !path.exists() && !path.mkdirs())
-			{
-				LogUtil.LogToView("error when make log path !", LogUtil.LogType.Critical);
-			}
-
-			LogPath = path.getAbsolutePath();
-			GlobalState.SetLogPath(LogPath);
-		}
-		catch(Exception e)
-		{
-			LogUtil.LogToView("error when set log path !", LogUtil.LogType.Critical);
-		}
-
-		// disable widgets
-		setWidgetsEnabled(false);
 
 		/// register all events
 
@@ -114,16 +102,84 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		SpeedSwitch.setOnCheckedChangeListener(this);
 		Clock.setOnChronometerTickListener(this);
 
-		/// initialize native libraries
-		GlobalInitialize();
+		// initialize log utility
+		LogUtil.SetTextView(LogView);
+		LogUtil.LogToView("global initializing...");
 
-		LogUtil.LogToView("initialize finished.");
-
-		if (InitializeGuard)
+		if (!InitializeGuard)
 		{
-			LogUtil.LogToView("initialize multi times.", LogUtil.LogType.Critical);
+			try
+			{
+				File path = getWindow().getContext().getExternalFilesDir("netstatlog");
+
+				// if fail, try again
+				if (path == null)
+				{
+					LogUtil.LogToView("get external files failed, try again.");
+					path = getWindow().getContext().getFilesDir();
+				}
+
+				if( (path == null) || (!path.exists() && !path.mkdirs()) )
+				{
+					LogUtil.LogToView("error when make log path !", LogUtil.LogType.Critical);
+				}
+
+				LogPath = path.getAbsolutePath();
+				GlobalState.SetLogPath(LogPath);
+			}
+			catch(Exception e)
+			{
+				LogUtil.LogToView("error when set log path !", LogUtil.LogType.Critical);
+			}
+
+			// get ip address
+			try
+			{
+				WifiManager wm = (WifiManager) getSystemService(WIFI_SERVICE);
+				int ipAddress = wm.getConnectionInfo().getIpAddress();
+				CurrentIpAddress = String.format("%d.%d.%d.%d", (ipAddress & 0xff),(ipAddress >> 8 & 0xff),(ipAddress >> 16 & 0xff),(ipAddress >> 24 & 0xff));
+			}
+			catch (Exception e)
+			{
+				LogUtil.LogToView("error when get ip address !", LogUtil.LogType.Critical);
+			}
+			LogUtil.LogToView("ip address is : " + CurrentIpAddress);
+
+
+			// disable widgets
+			DelayRadio.setChecked(true);
+			setWidgetsEnabled(false);
+
+			/// initialize native libraries
+			GlobalInitialize(CurrentIpAddress);
+
+			/// try get root permission
+			/*
+			if (upgradeRootPermission(getPackageCodePath()))
+			{
+				LogUtil.LogToView("get root permission success.", LogUtil.LogType.Info);
+			}
+			else
+			{
+				LogUtil.LogToView("get root permission fail.", LogUtil.LogType.Info);
+			}
+			*/
+		}
+		else
+		{
+			if (GlobalState.IsRunning())
+			{
+				Clock.setBase(BaseClockTime);
+				Clock.start();
+			}
+			else
+			{
+				Clock.setBase(BaseClockTime);
+			}
 		}
 		InitializeGuard = true;
+
+		LogUtil.LogToView("initialize finished.");
 	}
 
 	private void setWidgetsEnabled(boolean bEnable)
@@ -153,15 +209,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		{
 			if (v == SpeedSwitch)
 			{
-				if (bChecked)
+				if (bChecked && !CurrentSpeedupState)
 				{
 					LogUtil.LogToView("start speedup...");
 					StartSpeedup();
+					CurrentSpeedupState = true;
 				}
 				else
 				{
 					LogUtil.LogToView("stop speedup...");
 					StopSpeedup();
+					CurrentSpeedupState = false;
 				}
 			}
 		}
@@ -271,6 +329,63 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		return super.onOptionsItemSelected(item);
 	}
 
+	public static boolean upgradeRootPermission(String pkgCodePath)
+	{
+		Process process = null;
+		DataOutputStream os = null;
+		try
+		{
+			String cmd="chmod 777 " + pkgCodePath;
+			process = Runtime.getRuntime().exec("su");
+			os = new DataOutputStream(process.getOutputStream());
+			os.writeBytes(cmd + "\n");
+			os.writeBytes("exit\n");
+			os.flush();
+			process.waitFor();
+		}
+		catch (Exception e)
+		{
+			return false;
+		}
+		finally
+		{
+			try
+			{
+				if (os != null)
+				{
+					os.close();
+				}
+				process.destroy();
+			}
+			catch (Exception e)
+			{
+			}
+		}
+		return true;
+	}
+
+	private void CheckIpAddressChange()
+	{
+		if (CurrentIpAddress != null)
+		{
+			try
+			{
+				WifiManager wm = (WifiManager) getSystemService(WIFI_SERVICE);
+				int ipAddress = wm.getConnectionInfo().getIpAddress();
+				String currentIp = String.format("%d.%d.%d.%d", (ipAddress & 0xff),(ipAddress >> 8 & 0xff),(ipAddress >> 16 & 0xff),(ipAddress >> 24 & 0xff));
+				if (currentIp != CurrentIpAddress)
+				{
+					LogUtil.LogToView("ip changed during test !", LogUtil.LogType.Critical);
+				}
+			}
+			catch (Exception e)
+			{
+				LogUtil.LogToView("ip changed during test !", LogUtil.LogType.Critical);
+			}
+
+		}
+	}
+
 	// public native String stringFromJNI();
 	public native void StartDelayTest(String logPath);
 	public native void StopDelayTest();
@@ -278,7 +393,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 	public native void StopBandwidthTest();
 	public native boolean StartSpeedup();
 	public native void StopSpeedup();
-	public native void GlobalInitialize();
+	public native void GlobalInitialize(String ipAddress);
 	public native void GlobalDestroy();
 	public native String GetNativeLog();
 

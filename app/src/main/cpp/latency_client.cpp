@@ -71,14 +71,14 @@ public:
 
 			if (!log_file_->is_open()) {
 				log_file_.reset();
-				log("failed to open log file '%1%'", path);
+				log("<error> failed to open log file '%1%'", path);
 			}
 		}
 		catch (std::exception& e) {
-			log("set log exception %1%", e.what());
+			log("<error> set log exception %1%", e.what());
 		}
 		catch (...) {
-			log("set log exception");
+			log("<error> set log exception");
 		}
 	}
 
@@ -87,16 +87,17 @@ public:
 		try {
 			boost::asio::ip::tcp::resolver::query query(host, service);
 			boost::asio::io_service service;
-			iter_ = boost::asio::ip::tcp::resolver(service).resolve(query);
+			boost::asio::ip::tcp::resolver::iterator it = boost::asio::ip::tcp::resolver(service).resolve(query);
+			endpoint_ = *it;
 		}
 		catch (boost::system::error_code& ec) {
-			log("set endpoint exception %1%", ec.message());
+			log("<error> set endpoint exception %1%", ec.message());
 		}
 		catch (std::exception& e) {
-			log("set endpoint exception %1%", e.what());
+			log("<error> set endpoint exception %1%", e.what());
 		}
 		catch (...) {
-			log("set endpoint exception");
+			log("<error> set endpoint exception");
 		}
 	}
 
@@ -114,10 +115,10 @@ public:
 			start_connect();
 		}
 		catch (std::exception& e) {
-			log("start exception %1%", e.what());
+			log("<error> start exception %1%", e.what());
 		}
 		catch (...) {
-			log("start exception");
+			log("<error> start exception");
 		}
 	}
 
@@ -138,10 +139,10 @@ public:
 			service_.reset();
 		}
 		catch (std::exception& e) {
-			log("stop exception %1%", e.what());
+			log("<error> stop exception %1%", e.what());
 		}
 		catch (...) {
-			log("stop exception");
+			log("<error> stop exception");
 		}
 	}
 
@@ -150,8 +151,8 @@ private:
 	{
 		socket_ptr socket(new boost::asio::ip::tcp::socket(*service_));
 
-		boost::asio::async_connect(*socket, iter_,
-			boost::bind(&latency_client::handle_connect, this, socket, boost::placeholders::_1, boost::placeholders::_2));
+		socket->async_connect(endpoint_,
+			boost::bind(&latency_client::handle_connect, this, socket, boost::placeholders::_1));
 	}
 
 	void start_deferred_connect()
@@ -185,11 +186,11 @@ private:
 			boost::bind(&latency_client::handle_read, this, socket, boost::placeholders::_1, boost::placeholders::_2));
 	}
 
-	void handle_connect(socket_ptr socket, const boost::system::error_code& ec, boost::asio::ip::tcp::resolver::iterator)
+	void handle_connect(socket_ptr socket, const boost::system::error_code& ec)
 	{
 		if (ec)
 		{
-			log("connect error %1%", ec.message());
+			log("<error> connect error %1%", ec.message());
 
 			start_deferred_connect();
 		}
@@ -201,7 +202,7 @@ private:
 			socket->set_option(boost::asio::ip::tcp::no_delay(true), error_code);
 
 			if (error_code) {
-				log("failed to disable nagle");
+				log("<error> failed to disable nagle");
 			}
 
 			start_write(socket);
@@ -217,7 +218,7 @@ private:
 	{
 		if (ec)
 		{
-			log("write error %1%", ec.message());
+			log("<error> write error %1%", ec.message());
 
 			start_deferred_connect();
 		}
@@ -238,13 +239,13 @@ private:
 	{
 		if (ec)
 		{
-			log("read error %1%", ec.message());
+			log("<error> read error %1%", ec.message());
 
 			start_deferred_connect();
 		}
 		else if (memcmp(inbound_data_, outbound_data_, data_size) != 0)
 		{
-			log("data error");
+			log("<error> data error");
 
 			start_deferred_connect();
 		}
@@ -271,13 +272,13 @@ private:
 			service_->run();
 		}
 		catch (boost::system::error_code& ec) {
-			log("thread exception %1%", ec.message());
+			log("<error> thread exception %1%", ec.message());
 		}
 		catch (std::exception& e) {
-			log("thread exception %1%", e.what());
+			log("<error> thread exception %1%", e.what());
 		}
 		catch (...) {
-			log("thread exception");
+			log("<error> thread exception");
 		}
 	}
 
@@ -320,7 +321,7 @@ private:
 
 	boost::mutex log_mutex;
 
-	boost::asio::ip::tcp::resolver::iterator iter_;
+	boost::asio::ip::tcp::endpoint endpoint_;
 
 	boost::shared_ptr<boost::asio::io_service> service_;
 

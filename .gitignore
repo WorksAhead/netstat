@@ -8,3 +8,22 @@
 /captures
 .externalNativeBuild
 /ttcp/build
+/huawei_api/build
+/huawei_api/dependencies/*/build
+/latency_test/intermediate
+/latency_test/build/*.VC.db
+/latency_test/bin
+
+# huawei_api_client
+/huawei/huawei_api_client/build
+
+# huawei_api_server
+/huawei/huawei_api_server/build
+/huawei/huawei_api_server/dependencies/curl
+/huawei/huawei_api_server/dependencies/json
+/huawei/huawei_api_server/dependencies/b64.c/build
+/huawei/huawei_api_server/dependencies/hmac/build
+
+# protobuf
+/huawei/protobuf/google_protobuf
+/huawei/protobuf/protos/cpp_out
