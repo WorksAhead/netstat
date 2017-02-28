@@ -150,12 +150,10 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-#if defined (__linux__) || defined (__FreeBSD__)
     if (vm.count("daemon"))
     {
         is_daemonize = true;
     }
-#endif
 
     address = vm["address"].as<std::string>();
     port = vm["port"].as<std::string>();

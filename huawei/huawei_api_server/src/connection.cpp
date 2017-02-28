@@ -121,15 +121,19 @@ Connection::Close()
 
 // --------------- Redirect QoS request ------------------
 void Connection::DoApplyQosRequest(const std::string& remote_local_ip) {
+    SERVER_LOGGER(info) << "Forward ApplyQoSResourceRequest from " << remote_public_ip_;
     huawei_api_->ApplyQoSResourceRequest(remote_local_ip, remote_public_ip_);
 }
 
 void Connection::DoRemoveQosRequest() {
+    SERVER_LOGGER(info) << "Forward RemoveQoSResourceRequest from " << remote_public_ip_;
     huawei_api_->RemoveQoSResourceRequest();
 }
 
 // ---------------- Replays ------------------
 void Connection::ReplyApplyQosRequest() {
+    SERVER_LOGGER(info) << "Forward ApplyQoSResourceRequest response to " << remote_public_ip_ << ": " << huawei_api_->description();
+
     ApplyQosResponse* qos_response = new ApplyQosResponse;
     if (huawei_api_->error_code() != 0)
     {
@@ -154,6 +158,8 @@ void Connection::ReplyApplyQosRequest() {
 }
 
 void Connection::ReplyRemoveQosRequest() {
+    SERVER_LOGGER(info) << "Forward RemoveQoSResourceRequest response to " << remote_public_ip_ << ": " << huawei_api_->description();
+
     RemoveQosResponse* qos_response = new RemoveQosResponse;
     if (huawei_api_->error_code() != 0)
     {
