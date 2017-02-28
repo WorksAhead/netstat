@@ -93,6 +93,8 @@ TTcpClient::HandleConnect(const boost::system::error_code& error)
     {
         m_Signal("<error> Unable to connect to ttcpserver.");
         log("<error> Unable to connect to ttcpserver.");
+
+        m_Stop = true;
     }
 }
 
@@ -120,27 +122,37 @@ TTcpClient::HandleWrite(const boost::system::error_code& error, std::size_t byte
     {
         m_Signal("<error> Connection disconnected.");
         log("<error> Connection disconnected.");
+
+        m_Stop = true;
     }
 }
 
 void
 TTcpClient::Start()
 {
-    m_Stop = false;
+    try {
+      // Connect to server.
+      tcp::resolver resolver(m_IOservice);
+      tcp::resolver::query query(m_Addr, m_Port);
+      tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 
-    m_NotifyTimer.reset(new boost::asio::deadline_timer(m_IOservice, boost::posix_time::millisec(m_NotifyInterval)));
-    m_NotifyTimer->async_wait(boost::bind(&TTcpClient::HandleNotifySubscribers, this));
-
-    // Connect to server.
-    tcp::resolver resolver(m_IOservice);
-    tcp::resolver::query query(m_Addr, m_Port);
-    tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-
-    boost::asio::async_connect(m_Socket, endpoint_iterator,
+      boost::asio::async_connect(m_Socket, endpoint_iterator,
         boost::bind(&TTcpClient::HandleConnect, this,
-            boost::asio::placeholders::error));
+          boost::asio::placeholders::error));
 
-    m_Thread.reset(new boost::thread(boost::bind(&TTcpClient::Run, this)));
+      m_Stop = false;
+
+      m_NotifyTimer.reset(new boost::asio::deadline_timer(m_IOservice, boost::posix_time::millisec(m_NotifyInterval)));
+      m_NotifyTimer->async_wait(boost::bind(&TTcpClient::HandleNotifySubscribers, this));
+
+      m_Thread.reset(new boost::thread(boost::bind(&TTcpClient::Run, this)));
+
+    } catch (boost::system::system_error& error) {
+      m_Signal(boost::str(boost::format(
+        "<error> Failed to connect to TTcpServer. %1%") % error.what()).c_str());
+      log(boost::str(boost::format(
+        "<error> Failed to connect to TTcpServer. %1%") % error.what()).c_str());
+    }
 }
 
 void
