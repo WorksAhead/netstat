@@ -47,7 +47,22 @@ TTcpClient::TTcpClient(const std::string& address, const std::string& port, uint
     , m_Socket{m_IOservice}
     , m_NotifyInterval{notifyInterval}
 {
+    m_Thread = new boost::thread(&TTcpClient::Run, boost::ref(*this));
+}
 
+TTcpClient::~TTcpClient()
+{
+    if (connection_state_ == kConnected)
+    {
+        boost::system::error_code ignored_ec;
+        m_Socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
+        m_Socket.close();
+    }
+
+    m_IOservice.stop();
+
+    m_Thread->join();
+    delete m_Thread;
 }
 
 boost::signals2::connection
@@ -57,16 +72,39 @@ TTcpClient::RegisterCallback(const SignalType::slot_type& subscriber)
 }
 
 void
-TTcpClient::HandleNotifySubscribers()
+TTcpClient::HandleNotifySubscribers(const boost::system::error_code& error)
 {
-    m_Signal(NotifyMsg.c_str());
-    log(NotifyMsg.c_str());
+    if (error == boost::asio::error::operation_aborted)
+    {
+        // Timer was not cancelled.
+        return;
+    }
+
+    if (connection_state_ != kConnected && !m_Stop)
+    {
+        try {
+          // Connect to server.
+          Connect();
+          return;
+        }
+        catch (boost::system::system_error& error) {
+          m_Signal(boost::str(boost::format(
+            "<error> Failed to connect to TTcpServer. %1%") % error.what()).c_str());
+          log(boost::str(boost::format(
+            "<error> Failed to connect to TTcpServer. %1%") % error.what()).c_str());
+
+          m_Stop = true;
+        }
+    }
 
     // Reset timer again.
     if (!m_Stop)
     {
+        m_Signal(NotifyMsg.c_str());
+        log(NotifyMsg.c_str());
+
         m_NotifyTimer->expires_at(m_NotifyTimer->expires_at() + boost::posix_time::millisec(m_NotifyInterval));
-        m_NotifyTimer->async_wait(boost::bind(&TTcpClient::HandleNotifySubscribers, this));
+        m_NotifyTimer->async_wait(boost::bind(&TTcpClient::HandleNotifySubscribers, this, boost::asio::placeholders::error));
     }
 }
 
@@ -75,26 +113,25 @@ TTcpClient::HandleConnect(const boost::system::error_code& error)
 {
     if (!error)
     {
-        // Reset data.
-        m_TotalWriteBytes = 0;
+        connection_state_ = kConnected;
 
-        m_PacketBeginWrite = boost::chrono::high_resolution_clock::now();
-        m_PacketEndWrite = boost::chrono::high_resolution_clock::now();
-        m_TotalWriteTime = boost::chrono::duration<float>::zero();
+        m_NotifyTimer.reset(new boost::asio::deadline_timer(m_IOservice, boost::posix_time::millisec(m_NotifyInterval)));
+        m_NotifyTimer->async_wait(boost::bind(&TTcpClient::HandleNotifySubscribers, this, boost::asio::placeholders::error));
 
-        std::fill(std::begin(m_SndBuff), std::end(m_SndBuff), 0);
-
-        boost::asio::async_write(m_Socket,
-            boost::asio::buffer(m_SndBuff),
-            boost::bind(&TTcpClient::HandleWrite, this,
-                boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+        SendData();
     }
     else
     {
         m_Signal("<error> Unable to connect to ttcpserver.");
         log("<error> Unable to connect to ttcpserver.");
 
-        m_Stop = true;
+        connection_state_ = kDisconnected;
+
+        if (!m_Stop)
+        {
+            m_NotifyTimer.reset(new boost::asio::deadline_timer(m_IOservice, boost::posix_time::millisec(m_NotifyInterval)));
+            m_NotifyTimer->async_wait(boost::bind(&TTcpClient::HandleNotifySubscribers, this, boost::asio::placeholders::error));
+        }
     }
 }
 
@@ -112,68 +149,120 @@ TTcpClient::HandleWrite(const boost::system::error_code& error, std::size_t byte
         // Update notify message.
         NotifyMsg = boost::str(boost::format("%1$.2f KB") % (m_TotalWriteBytes / 1024.0 / m_TotalWriteTime.count()));
 
-        // Send packet again.
-        boost::asio::async_write(m_Socket,
-            boost::asio::buffer(m_SndBuff),
-            boost::bind(&TTcpClient::HandleWrite, this,
-                boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+        if (!m_Stop)
+        {
+          // Send packet again.
+          SendData();
+        }
     }
     else
     {
-        m_Signal("<error> Connection disconnected.");
-        log("<error> Connection disconnected.");
+        if (!m_Stop)
+        {
+            m_Signal("<error> Connection disconnected.");
+            log("<error> Connection disconnected.");
 
-        m_Stop = true;
+            try {
+              // Connect to server.
+              Connect();
+            }
+            catch (boost::system::system_error& error) {
+              m_Signal(boost::str(boost::format(
+                "<error> Failed to connect to TTcpServer. %1%") % error.what()).c_str());
+              log(boost::str(boost::format(
+                "<error> Failed to connect to TTcpServer. %1%") % error.what()).c_str());
+
+              m_Stop = true;
+            }
+        }
     }
 }
 
 void
 TTcpClient::Start()
 {
-    try {
-      // Connect to server.
-      tcp::resolver resolver(m_IOservice);
-      tcp::resolver::query query(m_Addr, m_Port);
-      tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
+    if (!m_Stop)
+    {
+        m_Signal("<error> Failed to start TTcpClient, TTcpClient is running.");
+        log("<error> Failed to start TTcpClient, TTcpClient is running.");
+        return;
+    }
 
-      boost::asio::async_connect(m_Socket, endpoint_iterator,
-        boost::bind(&TTcpClient::HandleConnect, this,
-          boost::asio::placeholders::error));
+    m_Signal("Start TTcpClient.");
+    log("Start TTcpClient.");
 
-      m_Stop = false;
+    // Reset data.
+    m_TotalWriteBytes = 0;
 
-      m_NotifyTimer.reset(new boost::asio::deadline_timer(m_IOservice, boost::posix_time::millisec(m_NotifyInterval)));
-      m_NotifyTimer->async_wait(boost::bind(&TTcpClient::HandleNotifySubscribers, this));
+    m_PacketBeginWrite = boost::chrono::high_resolution_clock::now();
+    m_PacketEndWrite = boost::chrono::high_resolution_clock::now();
+    m_TotalWriteTime = boost::chrono::duration<float>::zero();
 
-      m_Thread.reset(new boost::thread(boost::bind(&TTcpClient::Run, this)));
+    m_Stop = false;
 
-    } catch (boost::system::system_error& error) {
-      m_Signal(boost::str(boost::format(
-        "<error> Failed to connect to TTcpServer. %1%") % error.what()).c_str());
-      log(boost::str(boost::format(
-        "<error> Failed to connect to TTcpServer. %1%") % error.what()).c_str());
+    if (connection_state_ == kDisconnected)
+    {
+        try {
+          // Connect to server.
+          Connect();
+
+        } catch (boost::system::system_error& error) {
+          m_Signal(boost::str(boost::format(
+            "<error> Failed to connect to TTcpServer. %1%") % error.what()).c_str());
+          log(boost::str(boost::format(
+            "<error> Failed to connect to TTcpServer. %1%") % error.what()).c_str());
+
+          m_Stop = true;
+        }
+    }
+    else
+    {
+        SendData();
     }
 }
 
 void
 TTcpClient::Stop()
 {
-    boost::system::error_code ignored_ec;
-    m_Socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
-    m_Socket.close();
+    m_Signal("Stop TTcpClient.");
+    log("Stop TTcpClient.");
 
     m_Stop = true;
-
-    m_Thread->join();
-    
-    // m_IOservice.stop();
 }
 
 void
 TTcpClient::Run()
 {
-    m_IOservice.reset();
+    boost::asio::io_service::work work(m_IOservice);
     m_IOservice.run();
+}
+
+void
+TTcpClient::Connect()
+{
+    m_Signal("Connecting TTcpServer...");
+    log("Connecting TTcpServer...");
+
+    connection_state_ = kConnecting;
+
+    tcp::resolver resolver(m_IOservice);
+    tcp::resolver::query query(m_Addr, m_Port);
+    tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
+
+    boost::asio::async_connect(m_Socket, endpoint_iterator,
+      boost::bind(&TTcpClient::HandleConnect, this,
+        boost::asio::placeholders::error));
+}
+
+void
+TTcpClient::SendData()
+{
+    std::fill(std::begin(m_SndBuff), std::end(m_SndBuff), 0);
+
+    boost::asio::async_write(m_Socket,
+      boost::asio::buffer(m_SndBuff),
+      boost::bind(&TTcpClient::HandleWrite, this,
+        boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
 }
 
 // Jiang's
