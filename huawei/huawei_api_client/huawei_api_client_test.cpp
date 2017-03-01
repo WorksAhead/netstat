@@ -69,8 +69,9 @@ int main(int argc, char* argv[])
         for (int i = 0; i < 10; ++i)
         {
             huawei_api_client_start(p);
-            boost::this_thread::sleep_for(boost::chrono::seconds(10));
+            boost::this_thread::sleep_for(boost::chrono::seconds(60));
             huawei_api_client_stop(p);
+            boost::this_thread::sleep_for(boost::chrono::seconds(5));
         }
 
         huawei_api_client_destory(p);

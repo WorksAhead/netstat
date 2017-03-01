@@ -75,18 +75,22 @@ boost::signals2::connection HuaweiApiClient::RegisterCallback(
 }
 
 void HuaweiApiClient::Start() {
-    if (qos_state_ != kStoppedQosService)
+    if (qos_state_ == kApplyingQosRequest || qos_state_ == kUnderQosService)
     {
-        signal_(-1, "<error> Failed to Start HuaweiApiClient. qos_state_ != kStoppedQosService.");
-        log("<error> Failed to Start HuaweiApiClient. qos_state_ != kStoppedQosService.");
+        signal_(-1, "<error> Failed to Start HuaweiApiClient. Huawei QoS has already applied.");
+        log("<error> Failed to Start HuaweiApiClient. Huawei QoS has already applied.");
         return;
     }
 
-    qos_state_ = kApplyingQosRequest;
+    if (qos_state_ == kRemovingQosRequest)
+    {
+        StopQosRequestTimer();
+    }
 
-    // Start qos request timeout timer.
-    qos_request_timer_.reset(new boost::asio::deadline_timer(io_service_, boost::posix_time::seconds(qos_request_timeout_)));
-    qos_request_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleQosTimeout, this));
+    signal_(0, "Start HuaweiApiClient.");
+    log("Start HuaweiApiClient.");
+
+    qos_state_ = kApplyingQosRequest;
 
     if (connection_state_ == kDisconnected)
     {
@@ -101,7 +105,6 @@ void HuaweiApiClient::Start() {
             log(boost::str(boost::format(
               "<error> Failed to connect to HuaweiApiServer. %1%") % error.what()).c_str());
         }
-        
     }
     else
     {
@@ -110,25 +113,27 @@ void HuaweiApiClient::Start() {
 }
 
 void HuaweiApiClient::Stop() {
-    if (qos_state_ != kUnderQosService)
+    if (qos_state_ == kStoppedQosService || qos_state_ == kRemovingQosRequest)
     {
-        signal_(-1, "<error> Failed to Stop HuaweiApiClient. qos_state_ != kUnderQosService.");
-        log("<error> Failed to Start HuaweiApiClient. qos_state_ != kUnderQosService.");
+        signal_(-1, "<error> Failed to Stop HuaweiApiClient. Huawei QoS has already been removed.");
+        log("<error> Failed to Stop HuaweiApiClient. Huawei QoS has already been removed.");
         return;
     }
 
-    if (connection_state_ != kConnected)
+    if (qos_state_ == kApplyingQosRequest)
     {
-        signal_(-1, "<error> Failed to Stop HuaweiApiClient. connection_state_ != kConnected.");
-        log("<error> Failed to Start HuaweiApiClient. connection_state_ != kConnected.");
-        return;
+        StopQosRequestTimer();
     }
+
+    if (qos_state_ == kUnderQosService)
+    {
+        StopHeartbeat();
+    }
+    
+    signal_(0, "Stop HuaweiApiClient.");
+    log("Stop HuaweiApiClient.");
 
     qos_state_ = kRemovingQosRequest;
-
-    // Start qos request timeout timer.
-    qos_request_timer_.reset(new boost::asio::deadline_timer(io_service_, boost::posix_time::seconds(qos_request_timeout_)));
-    qos_request_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleQosTimeout, this));
 
     DoRemoveQosRequest();
 }
@@ -169,6 +174,10 @@ void HuaweiApiClient::DoApplyQosRequest() {
     signal_(0, "Send ApplyQoSRequest to Huawei Api Server.");
     log("Send ApplyQoSRequest to Huawei Api Server.");
 
+    // Start qos request timeout timer.
+    qos_request_timer_.reset(new boost::asio::deadline_timer(io_service_, boost::posix_time::seconds(qos_request_timeout_)));
+    qos_request_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleQosTimeout, this, boost::asio::placeholders::error));
+
     ApplyQosRequest* qos_request = new ApplyQosRequest;
     qos_request->set_local_ip(socket_.local_endpoint().address().to_string());
 
@@ -187,6 +196,10 @@ void HuaweiApiClient::DoApplyQosRequest() {
 void HuaweiApiClient::DoRemoveQosRequest() {
     signal_(0, "Send RemoveQoSRequest to Huawei Api Server.");
     log("Send RemoveQoSRequest to Huawei Api Server.");
+
+    // Start qos request timeout timer.
+    qos_request_timer_.reset(new boost::asio::deadline_timer(io_service_, boost::posix_time::seconds(qos_request_timeout_)));
+    qos_request_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleQosTimeout, this, boost::asio::placeholders::error));
 
     RemoveQosRequest* qos_request = new RemoveQosRequest;
 
@@ -227,7 +240,7 @@ void HuaweiApiClient::StartHeartbeat()
     {
         heartbeat_timer_->expires_at(heartbeat_timer_->expires_at() + boost::posix_time::seconds(heartbeat_interval_));
     }
-    heartbeat_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleHeartbeat, this));
+    heartbeat_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleHeartbeat, this, boost::asio::placeholders::error));
 }
 
 void HuaweiApiClient::StopHeartbeat()
@@ -247,7 +260,7 @@ void HuaweiApiClient::StartQosRequestTimer()
     {
         qos_request_timer_.reset(new boost::asio::deadline_timer(io_service_, boost::posix_time::seconds(qos_request_timeout_)));
     }
-    qos_request_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleQosTimeout, this));
+    qos_request_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleQosTimeout, this, boost::asio::placeholders::error));
 }
 
 void HuaweiApiClient::StopQosRequestTimer()
@@ -271,7 +284,7 @@ void HuaweiApiClient::HandleConnect(const boost::system::error_code& error)
         {
             if (qos_state_ == kUnderQosService)
             {
-                StopHeartbeat();
+                // StopHeartbeat();
 
                 signal_(-1, "<error> Reconnected to Huawei Api Server.");
                 log("<error> Reconnected to Huawei Api Server.");
@@ -279,17 +292,36 @@ void HuaweiApiClient::HandleConnect(const boost::system::error_code& error)
 
             DoApplyQosRequest();
         }
+        else if (qos_state_ == kRemovingQosRequest)
+        {
+            DoRemoveQosRequest();
+        }
     }
     else
     {
-        connection_state_ = kDisconnected;
-        qos_state_ = kStoppedQosService;
-
-        StopQosRequestTimer();
-        StopHeartbeat();
-
         signal_(-1, "<error> Failed to connect to Huawei Api Server.");
         log("<error> Failed to connect to Huawei Api Server.");
+
+        connection_state_ = kDisconnected;
+
+        if (qos_state_ == kApplyingQosRequest || qos_state_ == kUnderQosService)
+        {
+            // Start qos request timeout timer.
+            qos_request_timer_.reset(new boost::asio::deadline_timer(io_service_, boost::posix_time::seconds(qos_request_timeout_)));
+            qos_request_timer_->async_wait(boost::bind(&HuaweiApiClient::HandleQosTimeout, this, boost::asio::placeholders::error));
+
+            return;
+        }
+
+        //StopQosRequestTimer();
+        //StopHeartbeat();
+        if (qos_state_ == kRemovingQosRequest)
+        {
+            signal_(0, "Stop the HuaweiApiClient at local.");
+            log("Stop the HuaweiApiClient at local.");
+
+            qos_state_ = kStoppedQosService;
+        }
     }
 }
 
@@ -304,11 +336,14 @@ void HuaweiApiClient::HandleWrite(const boost::system::error_code& error, std::s
     }
     else
     {
+        signal_(-1, "<error> Failed to write data to Huawei Api Server, trying to reconnect the server.");
+        log("<error> Failed to write data to Huawei Api Server, trying to reconnect the server.");
+
         // Write data failed, close and reconnect the server.
         Close();
 
-        signal_(-1, "<error> Failed to write data to Huawei Api Server, trying to reconnect the server.");
-        log("<error> Failed to write data to Huawei Api Server, trying to reconnect the server.");
+        StopQosRequestTimer();
+        StopHeartbeat();
 
         try {
           Connect();
@@ -316,9 +351,6 @@ void HuaweiApiClient::HandleWrite(const boost::system::error_code& error, std::s
         catch (boost::system::system_error& error) {
           connection_state_ = kDisconnected;
           qos_state_ = kStoppedQosService;
-
-          StopQosRequestTimer();
-          StopHeartbeat();
 
           signal_(-1, boost::str(boost::format(
             "<error> Failed to connect to HuaweiApiServer. %1%") % error.what()).c_str());
@@ -366,15 +398,15 @@ void HuaweiApiClient::HandleRead(const boost::system::error_code& error, std::si
             signal_(-1, "<error> Failed to read data from Huawei Api Server, connection has broken, trying to reconnect the server.");
             log("<error> Failed to read data from Huawei Api Server, connection has broken, trying to reconnect the server.");
 
+            StopQosRequestTimer();
+            StopHeartbeat();
+
             try {
               Connect();
             }
             catch (boost::system::system_error& error) {
               connection_state_ = kDisconnected;
               qos_state_ = kStoppedQosService;
-
-              StopQosRequestTimer();
-              StopHeartbeat();
 
               signal_(-1, boost::str(boost::format(
                 "<error> Failed to connect to HuaweiApiServer. %1%") % error.what()).c_str());
@@ -385,29 +417,65 @@ void HuaweiApiClient::HandleRead(const boost::system::error_code& error, std::si
     }
 }
 
-void HuaweiApiClient::HandleQosTimeout() {
+void HuaweiApiClient::HandleQosTimeout(const boost::system::error_code& error) {
+    if (error == boost::asio::error::operation_aborted)
+    {
+        // Timer was not cancelled.
+        return;
+    }
+
     if (qos_state_ == kApplyingQosRequest)
     {
-        qos_state_ = kStoppedQosService;
-
         signal_(-1, "<error> ApplyQoSRequest timeout.");
         log("<error> ApplyQoSRequest timeout.");
+
+        if (connection_state_ != kConnected)
+        {
+            try {
+              Connect();
+            }
+            catch (boost::system::system_error& error) {
+              connection_state_ = kDisconnected;
+              qos_state_ = kStoppedQosService;
+
+              //StopQosRequestTimer();
+              //StopHeartbeat();
+
+              signal_(-1, boost::str(boost::format(
+                "<error> Failed to connect to HuaweiApiServer. %1%") % error.what()).c_str());
+              log(boost::str(boost::format(
+                "<error> Failed to connect to HuaweiApiServer. %1%") % error.what()).c_str());
+            }
+        }
+        else
+        {
+            DoApplyQosRequest();
+        }
     }
 
     if (qos_state_ == kRemovingQosRequest)
     {
-        qos_state_ = kStoppedQosService;
-        StopHeartbeat();
+        signal_(-1, "<error> RemoveQoSRequest timeout.");
+        log("<error> RemoveQoSRequest timeout.");
 
-        signal_(-1, "<error> RemoveQoSRequest timeout, anyway, reset HuaweiApiClient's state.");
-        log("<error> RemoveQoSRequest timeout, anyway, reset HuaweiApiClient's state.");
+        signal_(0, "Stop the HuaweiApiClient at local.");
+        log("Stop the HuaweiApiClient at local.");
+
+        qos_state_ = kStoppedQosService;
     }
 
-    StopQosRequestTimer();
+    // StopQosRequestTimer();
 }
 
-void HuaweiApiClient::HandleHeartbeat()
+void HuaweiApiClient::HandleHeartbeat(const boost::system::error_code& error)
 {
+    if (error == boost::asio::error::operation_aborted)
+    {
+      // Timer was not cancelled.
+      is_heartbeat_pendding = false;
+      return;
+    }
+
     // Previous heartbeat did not arrive.
     if (is_heartbeat_pendding)
     {
@@ -432,13 +500,13 @@ huawei::api::ErrorCode HuaweiApiClient::ApplyQoSResponse(const google::protobuf:
         return ErrorCode::ERROR_CODE_INVALID_MSG;
     }
 
-    StopQosRequestTimer();
-
     const huawei::api::ApplyQosResponse& apply_qos_response = (huawei::api::ApplyQosResponse&)(message);
     if (apply_qos_response.error_code() == huawei::api::ErrorCode::ERROR_CODE_NONE)
     {
         signal_(0, "ApplyQoSRequest has successed.");
         log("ApplyQoSRequest has successed.");
+
+        StopQosRequestTimer();
 
         qos_state_ = kUnderQosService;
 
@@ -446,7 +514,7 @@ huawei::api::ErrorCode HuaweiApiClient::ApplyQoSResponse(const google::protobuf:
     }
     else
     {
-        qos_state_ = kStoppedQosService;
+        // qos_state_ = kStoppedQosService;
 
         signal_(-1, boost::str(boost::format(
             "<error> Failed to ApplyQoSRequest. %1%") % 
@@ -454,6 +522,8 @@ huawei::api::ErrorCode HuaweiApiClient::ApplyQoSResponse(const google::protobuf:
         log(boost::str(boost::format(
             "<error> Failed to ApplyQoSRequest. %1%") %
             apply_qos_response.reason()).c_str());
+
+        // DoApplyQosRequest();
     }
 
     return apply_qos_response.error_code();
@@ -474,7 +544,6 @@ huawei::api::ErrorCode HuaweiApiClient::RemoveQoSResponse(const google::protobuf
 
     // Anyway, set the qos state to stopped.
     qos_state_ = kStoppedQosService;
-    StopHeartbeat();
 
     const huawei::api::RemoveQosResponse& remove_qos_response = (huawei::api::RemoveQosResponse&)(message);
     if (remove_qos_response.error_code() == huawei::api::ErrorCode::ERROR_CODE_NONE)

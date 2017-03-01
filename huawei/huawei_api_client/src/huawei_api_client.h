@@ -78,8 +78,8 @@ namespace huawei_api_client
         void HandleRead(const boost::system::error_code& error, std::size_t bytes_transferred);
 
         // Timer handler.
-        void HandleQosTimeout();
-        void HandleHeartbeat();
+        void HandleQosTimeout(const boost::system::error_code& error);
+        void HandleHeartbeat(const boost::system::error_code& error);
 
         // Response handler.
         huawei::api::ErrorCode ApplyQoSResponse(const google::protobuf::Message& message);
