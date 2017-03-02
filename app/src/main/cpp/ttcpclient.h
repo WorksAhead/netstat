@@ -18,9 +18,16 @@ namespace ttcp
     public:
         typedef boost::signals2::signal<void(const char*)> SignalType;
 
+        typedef enum {
+          kDisconnected = 0,
+          kConnecting,
+          kConnected,
+        } ConnectionState;
+
     public:
         // @notifyInterval: Callback interval in milliseconds.
         TTcpClient(const std::string& address, const std::string& port, uint32_t notifyInterval = 1000);
+        ~TTcpClient();
 
         boost::signals2::connection RegisterCallback(const SignalType::slot_type& subscriber);
 
@@ -34,7 +41,12 @@ namespace ttcp
         void set_log_file(const std::string& path);
 
     private:
-        void HandleNotifySubscribers();
+        void Connect();
+        void Close();
+
+        void SendData();
+
+        void HandleNotifySubscribers(const boost::system::error_code& error);
 
         void HandleConnect(const boost::system::error_code& error);
         void HandleWrite(const boost::system::error_code& error, std::size_t bytesTransferred);
@@ -45,14 +57,15 @@ namespace ttcp
         void log(const char* s);
 
     private:
-        bool m_Stop{false};
+        ConnectionState connection_state_ = kDisconnected;
+        bool m_Stop{true};
 
         std::string m_Addr;
         std::string m_Port;
 
         boost::asio::io_service m_IOservice;
         boost::asio::ip::tcp::socket m_Socket;
-        boost::shared_ptr<boost::thread> m_Thread;
+        boost::thread* m_Thread;
 
         // Notify the subscriber every 1000 msec during client is running as default.
         SignalType m_Signal;
