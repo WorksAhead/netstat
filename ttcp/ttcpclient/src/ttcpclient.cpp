@@ -93,7 +93,13 @@ TTcpClient::HandleNotifySubscribers(const boost::system::error_code& error)
           log(boost::str(boost::format(
             "<error> Failed to connect to TTcpServer. %1%") % error.what()).c_str());
 
-          m_Stop = true;
+          connection_state_ = kDisconnected;
+
+          m_NotifyTimer.reset(new boost::asio::deadline_timer(m_IOservice, boost::posix_time::millisec(m_NotifyInterval)));
+          m_NotifyTimer->async_wait(boost::bind(&TTcpClient::HandleNotifySubscribers, this, boost::asio::placeholders::error));
+
+          return;
+          // m_Stop = true;
         }
     }
 
@@ -162,6 +168,15 @@ TTcpClient::HandleWrite(const boost::system::error_code& error, std::size_t byte
             m_Signal("<error> Connection disconnected.");
             log("<error> Connection disconnected.");
 
+            Close();
+
+            // Stop timer.
+            if (m_NotifyTimer != nullptr)
+            {
+              m_NotifyTimer->cancel();
+              m_NotifyTimer = nullptr;
+            }
+
             try {
               // Connect to server.
               Connect();
@@ -172,7 +187,12 @@ TTcpClient::HandleWrite(const boost::system::error_code& error, std::size_t byte
               log(boost::str(boost::format(
                 "<error> Failed to connect to TTcpServer. %1%") % error.what()).c_str());
 
-              m_Stop = true;
+              connection_state_ = kDisconnected;
+
+              m_NotifyTimer.reset(new boost::asio::deadline_timer(m_IOservice, boost::posix_time::millisec(m_NotifyInterval)));
+              m_NotifyTimer->async_wait(boost::bind(&TTcpClient::HandleNotifySubscribers, this, boost::asio::placeholders::error));
+
+              // m_Stop = true;
             }
         }
     }
@@ -212,7 +232,12 @@ TTcpClient::Start()
           log(boost::str(boost::format(
             "<error> Failed to connect to TTcpServer. %1%") % error.what()).c_str());
 
-          m_Stop = true;
+          connection_state_ = kDisconnected;
+
+          m_NotifyTimer.reset(new boost::asio::deadline_timer(m_IOservice, boost::posix_time::millisec(m_NotifyInterval)));
+          m_NotifyTimer->async_wait(boost::bind(&TTcpClient::HandleNotifySubscribers, this, boost::asio::placeholders::error));
+
+          // m_Stop = true;
         }
     }
     else
@@ -252,6 +277,12 @@ TTcpClient::Connect()
     boost::asio::async_connect(m_Socket, endpoint_iterator,
       boost::bind(&TTcpClient::HandleConnect, this,
         boost::asio::placeholders::error));
+}
+
+void TTcpClient::Close() {
+  connection_state_ = kDisconnected;
+  boost::system::error_code ignored_ec;
+  m_Socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
 }
 
 void

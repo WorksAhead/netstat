@@ -42,6 +42,8 @@ namespace ttcp
 
     private:
         void Connect();
+        void Close();
+
         void SendData();
 
         void HandleNotifySubscribers(const boost::system::error_code& error);
