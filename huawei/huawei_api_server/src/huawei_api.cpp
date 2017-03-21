@@ -117,6 +117,12 @@ HuaweiAPI::ConstructApplyQoSResourceRequestBody(const std::string& local_ip, con
 {
     // Testing IP.
     // public_ip = "117.136.66.140";
+    /*
+    223.104.4.33
+    117.136.45.97
+    117.136.45.129
+    117.136.67.1
+    */
     // local_ip = "10.43.213.156";
 
     json body;

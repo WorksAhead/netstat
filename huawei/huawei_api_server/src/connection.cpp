@@ -121,7 +121,7 @@ Connection::Close()
 
 // --------------- Redirect QoS request ------------------
 void Connection::DoApplyQosRequest(const std::string& remote_local_ip) {
-    SERVER_LOGGER(info) << "Forward ApplyQoSResourceRequest from " << remote_public_ip_;
+    SERVER_LOGGER(info) << "Forward ApplyQoSResourceRequest from " << remote_public_ip_ << ", and it's local ip is " << remote_local_ip;
     huawei_api_->ApplyQoSResourceRequest(remote_local_ip, remote_public_ip_);
 }
 
